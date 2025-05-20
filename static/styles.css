@@ -499,6 +499,16 @@ footer {
     font-size: 28px;
 }
 
+.media-button.blue-button {
+    background-color: var(--apple-primary);
+    color: white;
+}
+
+.media-button.blue-button:hover {
+    background-color: #0062c9;
+    color: white;
+}
+
 /* 响应式设计 */
 @media (max-width: 480px) {
     body {
@@ -533,5 +543,106 @@ footer {
     .media-button.large {
         width: 60px;
         height: 60px;
+    }
+}
+
+/* 添加连接卡片的样式 */
+.connection-card {
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.connection-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.connection-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    transition: background-color 0.3s;
+}
+
+.connection-dot.connected {
+    background-color: var(--apple-success);
+    box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.2);
+}
+
+.connection-dot.disconnected {
+    background-color: var(--apple-danger);
+    box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.2);
+}
+
+#connection-status {
+    font-size: 14px;
+    color: var(--apple-text-secondary);
+    margin-right: 16px;
+}
+
+/* 连接卡片中的按钮样式 */
+.connection-card .btn {
+    margin: 0;
+    padding: 8px 16px;
+    font-size: 14px;
+    width: auto;
+}
+
+/* 音量控制区样式 */
+.volume-section {
+    margin-top: 24px;
+    border-top: 1px solid var(--apple-border);
+    padding-top: 16px;
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--apple-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.icon-button:hover:not(:disabled) {
+    background: #0062c9;
+    transform: translateY(-1px);
+}
+
+.icon-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.icon-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.icon-button i {
+    margin-right: 6px;
+}
+
+/* 响应式调整 */
+@media (max-width: 480px) {
+    .connection-card {
+        padding: 10px;
+    }
+    
+    .connection-card .btn {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    #connection-status {
+        font-size: 13px;
     }
 } 

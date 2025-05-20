@@ -15,35 +15,11 @@
 <body>
   <h1>Apple TV 遥控器</h1>
 
-  <div class="card">
-    <div class="card-title">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-        <path
-          d="M12 22c5.421 0 10-4.579 10-10S17.421 2 12 2 2 6.579 2 12s4.579 10 10 10zm0-18c4.337 0 8 3.663 8 8s-3.663 8-8 8-8-3.663-8-8 3.663-8 8-8z" />
-        <path d="M13 7h-2v6h6v-2h-4z" />
-      </svg>
-      <span>连接状态</span>
-    </div>
+  <div class="card connection-card">
     <div class="connection-info">
       <div id="connection-indicator" class="connection-dot disconnected"></div>
       <span id="connection-status">WebSocket未连接</span>
-    </div>
-    <div id="status" class="status disconnected">未连接</div>
-    <button id="connect-btn" class="btn">连接到服务器</button>
-    <div id="current-volume" class="hidden">
-      <p style="text-align: center; margin: 16px 0 8px;">当前音量: <span id="volume-value">0</span>%</p>
-      <div class="volume-control">
-        <button id="volume-down-btn" aria-label="减小音量"><i class="fas fa-minus"></i></button>
-        <div class="volume-display">
-          <div class="volume-slider">
-            <div id="volume-track" class="volume-track">
-              <div id="volume-level" class="volume-level"></div>
-              <div id="volume-handle" class="volume-handle"></div>
-            </div>
-          </div>
-        </div>
-        <button id="volume-up-btn" aria-label="增大音量"><i class="fas fa-plus"></i></button>
-      </div>
+      <button id="connect-btn" class="btn">连接</button>
     </div>
   </div>
 
@@ -74,6 +50,28 @@
       </button>
     </div>
 
+    <div id="current-volume" class="hidden volume-section">
+      <h3 style="margin: 24px 0 16px; font-size: 16px; font-weight: 500; text-align: center;">音量控制</h3>
+      <p style="text-align: center; margin-bottom: 8px;">当前音量: <span id="volume-value">0</span>%</p>
+      <div class="volume-control">
+        <button id="volume-down-btn" aria-label="减小音量"><i class="fas fa-minus"></i></button>
+        <div class="volume-display">
+          <div class="volume-slider">
+            <div id="volume-track" class="volume-track">
+              <div id="volume-level" class="volume-level"></div>
+              <div id="volume-handle" class="volume-handle"></div>
+            </div>
+          </div>
+        </div>
+        <button id="volume-up-btn" aria-label="增大音量"><i class="fas fa-plus"></i></button>
+      </div>
+      <div style="text-align: center; margin-top: 12px;">
+        <button id="mute-btn" class="icon-button" aria-label="静音">
+          <i class="fas fa-volume-mute"></i> 静音
+        </button>
+      </div>
+    </div>
+
     <div style="margin-top: 24px;">
       <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 500; text-align: center;">桌面切换</h3>
       <div class="btn-group">
@@ -100,7 +98,7 @@
       <button id="play-btn" class="media-button" disabled aria-label="播放">
         <i class="fas fa-play"></i>
       </button>
-      <button id="space-btn" class="media-button large" disabled aria-label="播放/暂停">
+      <button id="space-btn" class="media-button large blue-button" disabled aria-label="播放/暂停">
         <i class="fas fa-play-pause"></i>
       </button>
       <button id="pause-btn" class="media-button" disabled aria-label="暂停">

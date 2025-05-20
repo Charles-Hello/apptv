@@ -5,11 +5,11 @@ document.addEventListener('DOMContentLoaded', function () {
   const volumeTrack = document.getElementById('volume-track');
   const volumeHandle = document.getElementById('volume-handle');
   const statusText = document.getElementById('status-text');
-  const statusDiv = document.getElementById('status');
   const connectBtn = document.getElementById('connect-btn');
   const connectionDot = document.getElementById('connection-indicator');
   const connectionStatus = document.getElementById('connection-status');
   const volumeContainer = document.getElementById('current-volume');
+  const muteBtn = document.getElementById('mute-btn');
 
   // 控制按钮
   const playBtn = document.getElementById('play-btn');
@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 保存当前音量和URL历史
   let currentVolume = 0;
+  let lastNonZeroVolume = 50; // 存储上一次非零音量值
   let urlHistory = JSON.parse(localStorage.getItem('urlHistory') || '[]');
 
   // 初始化状态
@@ -41,35 +42,28 @@ document.addEventListener('DOMContentLoaded', function () {
   let isDragging = false;
   let socket = null;
   let isConnected = false;
+  let isMuted = false; // 添加静音状态标志
 
   // 更新连接状态指示器
   function updateConnectionIndicator(status) {
     // 移除所有状态类
     connectionDot.classList.remove('connected', 'disconnected');
-    statusDiv.className = 'status';
 
     switch (status) {
       case 'connected':
         connectionDot.classList.add('connected');
         connectionStatus.textContent = 'WebSocket已连接';
-        statusDiv.classList.add('connected');
-        statusDiv.textContent = '已连接';
         break;
       case 'connecting':
         connectionDot.classList.add('disconnected');
         connectionStatus.textContent = '正在连接...';
-        statusDiv.classList.add('connecting');
-        statusDiv.textContent = '正在连接...';
         break;
       case 'disconnected':
         connectionDot.classList.add('disconnected');
-        connectionStatus.textContent = 'WebSocket已断开';
-        statusDiv.classList.add('disconnected');
-        statusDiv.textContent = '已断开连接';
+        connectionStatus.textContent = 'WebSocket未连接';
         break;
       default:
         connectionStatus.textContent = '连接状态未知';
-        statusDiv.classList.add('disconnected');
     }
   }
 
@@ -88,6 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
     volumeUpBtn.disabled = !enable;
     desktopLeftBtn.disabled = !enable;
     desktopRightBtn.disabled = !enable;
+    muteBtn.disabled = !enable;
 
     // 检查URL输入框的值，如果为空则禁用发送按钮
     if (urlInput.value.trim() === '') {
@@ -117,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
         isConnected = true;
         statusText.textContent = 'WebSocket已连接';
         updateConnectionIndicator('connected');
-        connectBtn.textContent = '断开连接';
+        connectBtn.textContent = '断开';
 
         // 启用按钮
         enableButtons(true);
@@ -140,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
         isConnected = false;
         statusText.textContent = 'WebSocket已断开';
         updateConnectionIndicator('disconnected');
-        connectBtn.textContent = '连接到服务器';
+        connectBtn.textContent = '连接';
 
         // 禁用按钮
         enableButtons(false);
@@ -165,6 +160,11 @@ document.addEventListener('DOMContentLoaded', function () {
       socket.on('status_update', function (data) {
         updateVolumeDisplay(data.current_volume);
         statusText.textContent = `${data.status}`;
+
+        // 如果初始音量为0，确保lastNonZeroVolume不为0
+        if (data.current_volume === 0 && lastNonZeroVolume === 0) {
+          lastNonZeroVolume = 50; // 默认值
+        }
       });
 
       // 音量更新
@@ -321,6 +321,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 更新音量显示
   function updateVolumeDisplay(volume) {
+    // 如果音量不为零，保存为上次非零音量
+    if (volume > 0) {
+      lastNonZeroVolume = volume;
+    }
+
     // 更新进度条
     volumeLevel.style.width = `${volume}%`;
     // 更新滑块位置
@@ -329,6 +334,16 @@ document.addEventListener('DOMContentLoaded', function () {
     volumeValue.textContent = `${volume}`;
     // 保存当前音量
     currentVolume = volume;
+
+    // 更新静音状态
+    isMuted = volume === 0;
+
+    // 更新静音按钮图标
+    if (isMuted) {
+      muteBtn.innerHTML = '<i class="fas fa-volume-up"></i> 恢复音量';
+    } else {
+      muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i> 静音';
+    }
   }
 
   // 添加URL到历史记录
@@ -342,8 +357,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // 添加到开头
     urlHistory.unshift(url);
 
-    // 限制最多保存10条记录
-    if (urlHistory.length > 10) {
+    // 限制最多保存5条记录
+    if (urlHistory.length > 5) {
       urlHistory.pop();
     }
 
@@ -488,6 +503,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (socket && socket.connected) {
       socket.emit('volume_control', { direction: 'down' });
       statusText.textContent = '减小音量';
+
+      // 如果音量可能会降到0，确保已记录最后的非零音量
+      if (currentVolume <= 5 && currentVolume > 0) {
+        lastNonZeroVolume = currentVolume;
+      }
     } else {
       statusText.textContent = 'WebSocket未连接，无法控制音量';
     }
@@ -500,6 +520,23 @@ document.addEventListener('DOMContentLoaded', function () {
       statusText.textContent = '增大音量';
     } else {
       statusText.textContent = 'WebSocket未连接，无法控制音量';
+    }
+  });
+
+  // 静音按钮
+  muteBtn.addEventListener('click', function () {
+    if (socket && socket.connected) {
+      if (isMuted) {
+        // 如果当前是静音状态，恢复到上次的非零音量
+        socket.emit('set_volume', { volume: lastNonZeroVolume });
+        statusText.textContent = '恢复音量';
+      } else {
+        // 如果当前不是静音状态，设置为静音
+        socket.emit('set_volume', { volume: 0 });
+        statusText.textContent = '已静音';
+      }
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法设置静音';
     }
   });
 
@@ -564,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function () {
   window.addEventListener('load', function () {
     // 如果在移动设备上，自动连接
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-      setTimeout(connectToServer, 500);
+      setTimeout(connectToServer, 100);
     }
   });
 
