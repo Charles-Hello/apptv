@@ -1,0 +1,300 @@
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
+import subprocess
+import os
+import time
+import ssl
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key'
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# SSL证书路径（可以根据需要修改）
+SSL_CERT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cert', 'cert.pem')
+SSL_KEY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cert', 'key.pem')
+
+# 控制音量的函数
+def change_volume(direction):
+    """调整系统音量，每次增减5%"""
+    if direction == "up":
+        cmd = "osascript -e 'set volume output volume (output volume of (get volume settings) + 5) --100%'"
+    else:
+        cmd = "osascript -e 'set volume output volume (output volume of (get volume settings) - 5) --100%'"
+    subprocess.run(cmd, shell=True)
+    return get_current_volume()
+
+def set_volume(volume_level):
+    """直接设置系统音量到指定值"""
+    # 确保音量在0-100之间
+    volume_level = max(0, min(100, volume_level))
+    cmd = f"osascript -e 'set volume output volume {volume_level} --100%'"
+    subprocess.run(cmd, shell=True)
+    return get_current_volume()
+
+def get_current_volume():
+    """获取当前系统音量"""
+    cmd = "osascript -e 'output volume of (get volume settings)'"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    return int(result.stdout.strip())
+
+# 模拟键盘上下键
+def press_key(key):
+    """模拟按键"""
+    key_codes = {
+        "up": 126,    # 上箭头
+        "down": 125,  # 下箭头
+        "left": 123,  # 左箭头
+        "right": 124, # 右箭头
+        "space": 49,  # 空格键
+        "f": 3        # f 键
+    }
+    
+    if key in key_codes:
+        cmd = f"osascript -e 'tell application \"System Events\" to key code {key_codes[key]}'"
+        subprocess.run(cmd, shell=True)
+        return True
+    return False
+
+# 切换桌面的函数
+def switch_desktop(direction):
+    """
+    使用Control+方向键切换全屏桌面
+    
+    参数:
+        direction: 字符串，"left" 或 "right"，表示切换方向
+    """
+    if direction not in ["left", "right"]:
+        return False
+    
+    # 创建AppleScript命令
+    apple_script = f'''
+    tell application "System Events"
+        key down control
+        key code {123 if direction == "left" else 124}
+        key up control
+    end tell
+    '''
+    
+    # 执行AppleScript
+    try:
+        subprocess.run(['osascript', '-e', apple_script], check=True)
+        return True
+    except Exception:
+        return False
+
+# 暂停播放并切换桌面的函数
+def pause_switch_resume(direction):
+    """
+    切换桌面的逻辑：
+    - 左边桌面（浏览器）通过WebSocket控制视频
+    - 右边桌面（app）通过空格键控制视频
+    
+    参数:
+        direction: 字符串，"left" 或 "right"，表示切换方向
+    """
+    if direction not in ["left", "right"]:
+        return False
+    
+    try:
+        if direction == "left":
+            # 切换到左边桌面（浏览器桌面）
+            # 1. 先按空格键暂停当前app的视频
+            press_key("space")
+            
+            # 2. 等待短暂时间
+            time.sleep(0.5)
+            
+            # 3. 切换到浏览器桌面
+            success = switch_desktop(direction)
+            
+            # 4. 等待切换完成
+            time.sleep(0.5)
+            
+            # 5. 通过WebSocket发送播放命令给浏览器
+            socketio.emit('video_control_command', {
+                "action": "play",
+                "timestamp": int(__import__('time').time())
+            })
+            
+        else:  # direction == "right"
+            # 切换到右边桌面（app桌面）
+            # 1. 通过WebSocket发送暂停命令给浏览器
+            socketio.emit('video_control_command', {
+                "action": "pause",
+                "timestamp": int(__import__('time').time())
+            })
+            
+            # 2. 等待短暂时间，确保浏览器处理暂停命令
+            time.sleep(0.5)
+            
+            # 3. 切换到app桌面
+            success = switch_desktop(direction)
+            
+            # 4. 等待切换完成
+            time.sleep(0.5)
+            
+            # 5. 按空格键恢复app的视频播放
+            press_key("space")
+            
+        return success
+    except Exception as e:
+        print(f"执行桌面切换过程出错: {e}")
+        return False
+
+# WebSocket事件处理
+@socketio.on('connect')
+def handle_connect():
+    """客户端连接时的处理"""
+    # 向客户端发送当前状态
+    current_volume = get_current_volume()
+    emit('status_update', {
+        'status': '已连接',
+        'current_volume': current_volume
+    })
+    print("客户端已连接")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """客户端断开连接时的处理"""
+    print("客户端已断开")
+
+@socketio.on('key_press')
+def handle_key_press(data):
+    """处理按键请求"""
+    direction = data.get('direction')
+    if direction not in ['up', 'down', 'left', 'right', 'f']:
+        emit('error', {"error": "无效的按键，请使用 'up'、'down'、'left'、'right' 或 'f'"})
+        return
+    
+    success = press_key(direction)
+    emit('key_press_response', {
+        "success": success, 
+        "direction": direction
+    })
+
+@socketio.on('volume_control')
+def handle_volume_control(data):
+    """处理音量控制请求"""
+    direction = data.get('direction')
+    if direction not in ['up', 'down']:
+        emit('error', {"error": "方向无效，请使用 'up' 或 'down'"})
+        return
+    
+    current_volume = change_volume(direction)
+    emit('volume_update', {
+        "success": True,
+        "direction": direction,
+        "current_volume": current_volume
+    })
+    # 广播给所有连接的客户端
+    socketio.emit('volume_broadcast', {
+        "current_volume": current_volume
+    })
+
+@socketio.on('set_volume')
+def handle_set_volume(data):
+    """设置特定音量值"""
+    try:
+        volume = int(data.get('volume', 0))
+        if volume < 0 or volume > 100:
+            emit('error', {"error": "音量必须在0-100之间"})
+            return
+            
+        current_volume = set_volume(volume)
+        emit('volume_update', {
+            "success": True,
+            "volume": volume,
+            "current_volume": current_volume
+        })
+        # 广播给所有连接的客户端
+        socketio.emit('volume_broadcast', {
+            "current_volume": current_volume
+        })
+    except ValueError:
+        emit('error', {"error": "无效的音量值"})
+
+@socketio.on('play_pause')
+def handle_play_pause():
+    """控制媒体播放/暂停"""
+    success = press_key("space")
+    emit('play_pause_response', {
+        "success": success,
+        "action": "play_pause"
+    })
+
+@socketio.on('get_status')
+def handle_get_status():
+    """获取当前状态"""
+    current_volume = get_current_volume()
+    emit('status_update', {
+        "status": "运行中",
+        "current_volume": current_volume
+    })
+
+@socketio.on('open_url')
+def handle_open_url(data):
+    """处理打开URL的请求"""
+    url = data.get('url')
+    if not url:
+        emit('error', {"error": "URL不能为空"})
+        return
+    
+    # 广播URL给所有连接的客户端
+    socketio.emit('open_url_command', {
+        "url": url,
+        "timestamp": int(__import__('time').time())
+    })
+    
+    emit('open_url_response', {
+        "success": True,
+        "url": url,
+        "message": "URL已发送到浏览器"
+    })
+
+@socketio.on('video_control')
+def handle_video_control(data):
+    """处理视频控制命令（播放/暂停）"""
+    action = data.get('action')
+    if action not in ['play', 'pause']:
+        emit('error', {"error": "无效的操作，支持 'play', 'pause'"})
+        return
+    
+    # 广播视频控制命令给所有客户端
+    socketio.emit('video_control_command', {
+        "action": action,
+        "timestamp": int(__import__('time').time())
+    })
+    
+    emit('video_control_response', {
+        "success": True,
+        "action": action,
+        "message": f"视频控制命令 '{action}' 已发送"
+    })
+
+@socketio.on('switch_desktop')
+def handle_switch_desktop(data):
+    """处理桌面切换请求"""
+    direction = data.get('direction')
+    
+    if direction not in ['left', 'right']:
+        emit('error', {"error": "方向无效，请使用 'left' 或 'right'"})
+        return
+    
+    print(f"通过WebSocket请求切换桌面: {direction}")
+    success = pause_switch_resume(direction)
+        
+    emit('switch_desktop_response', {
+        "success": success, 
+        "direction": direction
+    })
+
+# 主页路由
+@app.route('/')
+def index():
+    """渲染遥控器前端界面"""
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    # 使用HTTP模式，避免证书问题
+    print("使用HTTP模式运行服务器")
+    socketio.run(app, host='0.0.0.0', port=5003, debug=True)

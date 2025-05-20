@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Apple TV 遥控器</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+
+<body>
+  <h1>Apple TV 遥控器</h1>
+
+  <div class="card">
+    <div class="card-title">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+        <path
+          d="M12 22c5.421 0 10-4.579 10-10S17.421 2 12 2 2 6.579 2 12s4.579 10 10 10zm0-18c4.337 0 8 3.663 8 8s-3.663 8-8 8-8-3.663-8-8 3.663-8 8-8z" />
+        <path d="M13 7h-2v6h6v-2h-4z" />
+      </svg>
+      <span>连接状态</span>
+    </div>
+    <div class="connection-info">
+      <div id="connection-indicator" class="connection-dot disconnected"></div>
+      <span id="connection-status">WebSocket未连接</span>
+    </div>
+    <div id="status" class="status disconnected">未连接</div>
+    <button id="connect-btn" class="btn">连接到服务器</button>
+    <div id="current-volume" class="hidden">
+      <p style="text-align: center; margin: 16px 0 8px;">当前音量: <span id="volume-value">0</span>%</p>
+      <div class="volume-control">
+        <button id="volume-down-btn" aria-label="减小音量"><i class="fas fa-minus"></i></button>
+        <div class="volume-display">
+          <div class="volume-slider">
+            <div id="volume-track" class="volume-track">
+              <div id="volume-level" class="volume-level"></div>
+              <div id="volume-handle" class="volume-handle"></div>
+            </div>
+          </div>
+        </div>
+        <button id="volume-up-btn" aria-label="增大音量"><i class="fas fa-plus"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+        <path
+          d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" />
+        <path d="M13.293 7.293 8.586 12l4.707 4.707 1.414-1.414L11.414 12l3.293-3.293z" />
+      </svg>
+      <span>导航控制</span>
+    </div>
+    <div class="directional-pad">
+      <button id="arrow-up-btn" class="directional-button button-up" disabled aria-label="上">
+        <i class="fas fa-chevron-up"></i>
+      </button>
+      <button id="arrow-right-btn" class="directional-button button-right" disabled aria-label="右">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <button id="arrow-down-btn" class="directional-button button-down" disabled aria-label="下">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <button id="arrow-left-btn" class="directional-button button-left" disabled aria-label="左">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <button id="f-key-btn" class="directional-button button-center" disabled aria-label="确认">
+        <i class="fas fa-check"></i>
+      </button>
+    </div>
+
+    <div style="margin-top: 24px;">
+      <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 500; text-align: center;">桌面切换</h3>
+      <div class="btn-group">
+        <button id="desktop-left-btn" class="btn btn-warning" disabled>
+          <i class="fas fa-film"></i> 电影
+        </button>
+        <button id="desktop-right-btn" class="btn btn-warning" disabled>
+          <i class="fas fa-tv"></i> 电视
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+        <path
+          d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" />
+        <path d="m9 17 8-5-8-5z" />
+      </svg>
+      <span>视频控制</span>
+    </div>
+    <div class="media-controls">
+      <button id="play-btn" class="media-button" disabled aria-label="播放">
+        <i class="fas fa-play"></i>
+      </button>
+      <button id="space-btn" class="media-button large" disabled aria-label="播放/暂停">
+        <i class="fas fa-play-pause"></i>
+      </button>
+      <button id="pause-btn" class="media-button" disabled aria-label="暂停">
+        <i class="fas fa-pause"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+        <path
+          d="M20 8h-5.612l1.123-3.367c.202-.608.1-1.282-.275-1.802S14.253 2 13.612 2H12c-.297 0-.578.132-.769.36L6.531 8H4c-1.103 0-2 .897-2 2v9c0 1.103.897 2 2 2h13.307a2.01 2.01 0 0 0 1.873-1.298l2.757-7.351A1 1 0 0 0 22 12v-2c0-1.103-.897-2-2-2zM4 10h2v9H4v-9zm16 2-2.857 7.616c-.228.561-.868.384-1.31.384H8V9.158l4.612-5.158h1l-1.202 3.607c-.241.725.259 1.393 1.002 1.393H20v3z" />
+      </svg>
+      <span>发送网页</span>
+    </div>
+    <div class="form-group">
+      <label for="url-input">输入要打开的网页地址</label>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="url" id="url-input" placeholder="请输入网址" value="">
+        <button id="clear-url-btn" class="btn"
+          style="width: auto; padding: 12px; border-radius: 50%; aspect-ratio: 1;"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <button id="send-url-btn" class="btn btn-block" disabled>发送到浏览器</button>
+
+    <div id="url-history-container" class="hidden">
+      <h3 style="margin-top: 20px; font-size: 16px; font-weight: 500;">历史记录</h3>
+      <div id="url-history" class="history-list"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2023 Apple TV 遥控器 | <span id="status-text">未连接</span></p>
+  </footer>
+
+  <!-- 引入Socket.IO客户端库 -->
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  <script src="/static/script.js"></script>
+</body>
+
+</html>
