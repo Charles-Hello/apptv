@@ -145,6 +145,12 @@
   <!-- 引入Socket.IO客户端库 -->
   <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
   <script src="/static/script.js"></script>
+  <!-- 添加HTTPS自动检测支持 -->
+  <script>
+    // 自动检测当前网页协议，决定WebSocket连接方式
+    window.isHttps = window.location.protocol === 'https:';
+    console.log("当前使用" + (window.isHttps ? "HTTPS" : "HTTP") + "协议");
+  </script>
 </body>
 
 </html>

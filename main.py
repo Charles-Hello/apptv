@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import subprocess
 import time
@@ -435,6 +435,34 @@ def handle_keep_alive():
 def index():
     """渲染遥控器前端界面"""
     return render_template('index.html')
+
+# 添加HTTP路由接收链接
+@app.route('/send-url', methods=['GET', 'POST'])
+def send_url_http():
+    """通过HTTP请求接收并广播URL"""
+    if request.method == 'POST':
+        url = request.form.get('url')
+    else:  # GET请求
+        url = request.args.get('url')
+    
+    # 验证URL
+    if not url:
+        return jsonify({
+            "success": False,
+            "error": "URL不能为空"
+        }), 400
+    
+    # 广播URL给所有连接的客户端
+    socketio.emit('open_url_command', {
+        "url": url,
+        "timestamp": int(__import__('time').time())
+    })
+    
+    return jsonify({
+        "success": True,
+        "url": url,
+        "message": "URL已发送到浏览器"
+    })
 
 if __name__ == '__main__':
     # 使用HTTP模式，避免证书问题

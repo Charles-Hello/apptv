@@ -130,8 +130,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
       updateConnectionIndicator('connecting');
 
-      // 创建连接
-      socket = io.connect(window.location.origin, {
+      // 创建连接 - 自动检测HTTP/HTTPS
+      const protocol = window.isHttps ? 'https://' : 'http://';
+      const wsProtocol = window.isHttps ? 'wss://' : 'ws://';
+      const host = window.location.hostname;
+      const port = window.location.port;
+      const wsUrl = port ? `${wsProtocol}${host}:${port}` : `${wsProtocol}${host}`;
+
+      console.log(`连接到WebSocket服务器: ${wsUrl}`);
+
+      socket = io.connect(wsUrl, {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
