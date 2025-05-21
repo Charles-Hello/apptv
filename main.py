@@ -1,17 +1,12 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import subprocess
-import os
 import time
 import threading
 import datetime
-import ssl
-from flask_cors import CORS
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-# Enable CORS for all routes and origins
-CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=60, ping_interval=25)
 
 # 屏幕唤醒状态管理
@@ -24,6 +19,7 @@ screen_wake_status = {
 # 记录今天是否已经有用户触发了屏幕唤醒
 first_user_wake_triggered = False
 first_user_wake_date = None
+
 
 # 控制音量的函数
 def change_volume(direction):
@@ -441,15 +437,6 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    # Create SSL context for secure connections
-    try:
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        # You can use self-signed certificates for testing
-        # Replace with your actual certificate paths if you have them
-        # context.load_cert_chain('cert.pem', 'key.pem')
-        print("Starting server with SSL support")
-        socketio.run(app, host='0.0.0.0', port=5003, ssl_context=context, debug=True)
-    except Exception as e:
-        print(f"Failed to start with SSL: {e}")
-        print("Falling back to HTTP mode")
-        socketio.run(app, host='0.0.0.0', port=5003, debug=True)
+    # 使用HTTP模式，避免证书问题
+    print("使用HTTP模式运行服务器")
+    socketio.run(app, host='0.0.0.0', port=5003, debug=True)
