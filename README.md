@@ -2,6 +2,29 @@
 
 一个基于 Flask 和 Socket.IO 的 Apple TV 远程控制应用，可以通过网页界面控制 Apple TV 或播放设备。
 
+
+需求目的：
+开发理由是：闲置的 MacBook M1 古董吃亏，无奈拿来当电视盒子，壕无人性。既想看电影又想看电视的需求。以及无需红外线直接采用 WebSocket 来操控电脑控制屏幕切换，视频播放，音量调节。唤醒 macOS 采用咖啡来操作，默认两个小时。未来计划是对电影网站发送到 WebSocket 直接播放，目前采用方案是手动发送电影播放的网页。
+
+b站演示地址：
+https://www.bilibili.com/video/BV1RSJBzwEGm/
+
+电影地址：
+movie.tnanko.top
+
+搭配油猴插件：
+左一屏是电影，右一屏是 APTV
+这样遥控 MacBook 播放电影和数字电视两不误。
+
+购置了 C 对 HDMI 线，血花 60 大米，用来满足 60Hz 需求。
+N300 音响 699 大米，AUX 模式，3.5mm 音响接口。
+对了，不得不说垃圾 MacBook 接口少之又少。
+
+
+![交流群](readme/image.png)
+
+
+
 ![Apple TV 遥控器界面](readme/index.jpg)
 
 ## 功能特点

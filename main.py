@@ -9,7 +9,7 @@ import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=60, ping_interval=25)
 
 # 屏幕唤醒状态管理
 screen_wake_status = {
@@ -437,6 +437,12 @@ def handle_get_wake_status():
     """获取屏幕唤醒状态"""
     wake_status = get_wake_status()
     emit('wake_status_update', wake_status)
+
+@socketio.on('keep_alive')
+def handle_keep_alive():
+    """处理保持连接的心跳消息"""
+    # 仅记录日志，不需要实际处理
+    pass
 
 # 主页路由
 @app.route('/')

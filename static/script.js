@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const volumeContainer = document.getElementById('current-volume');
   const muteBtn = document.getElementById('mute-btn');
 
+  // WebSocket连接检测变量
+  let wsCheckInterval = null;
+  let wsReconnectAttempts = 0;
+  let wsMaxReconnectAttempts = 10;
+  let isPageVisible = true; // 添加页面可见性跟踪变量
+
   // 控制按钮
   const playPauseBtn = document.getElementById('play-pause-btn');
   const arrowUpBtn = document.getElementById('arrow-up-btn');
@@ -129,7 +135,11 @@ document.addEventListener('DOMContentLoaded', function () {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: Infinity
+        reconnectionAttempts: Infinity,
+        // 添加心跳设置，防止移动设备切换应用时连接断开
+        pingInterval: 25000,  // 减少ping间隔（默认25000）
+        pingTimeout: 60000,   // 增加ping超时（默认5000）
+        timeout: 60000        // 增加连接超时
       });
 
       // 连接事件
@@ -286,10 +296,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  // 检查WebSocket连接状态
+  function checkWebSocketConnection() {
+    if (!socket || !socket.connected) {
+      console.log('WebSocket连接断开，尝试重新连接...');
+      // 如果未达到最大重连次数，尝试重连
+      if (wsReconnectAttempts < wsMaxReconnectAttempts) {
+        wsReconnectAttempts++;
+        statusText.textContent = `连接断开，正在尝试重连 (${wsReconnectAttempts}/${wsMaxReconnectAttempts})`;
+        connectToServer();
+      } else {
+        statusText.textContent = `重连失败，已达到最大尝试次数 (${wsMaxReconnectAttempts})`;
+        // 停止定时检测
+        clearInterval(wsCheckInterval);
+      }
+    } else {
+      // 连接正常，重置重连计数
+      wsReconnectAttempts = 0;
+    }
+  }
+
   // 断开连接
   function disconnectFromServer() {
     if (socket) {
       socket.disconnect();
+    }
+
+    // 清除连接检测定时器
+    if (wsCheckInterval) {
+      clearInterval(wsCheckInterval);
+      wsCheckInterval = null;
     }
   }
 
@@ -458,8 +494,15 @@ document.addEventListener('DOMContentLoaded', function () {
   connectBtn.addEventListener('click', function () {
     if (isConnected) {
       disconnectFromServer();
+      connectBtn.textContent = '连接';
     } else {
       connectToServer();
+      connectBtn.textContent = '断开';
+
+      // 启动WebSocket连接状态检测
+      if (!wsCheckInterval) {
+        wsCheckInterval = setInterval(checkWebSocketConnection, 10000);
+      }
     }
   });
 
@@ -649,6 +692,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
       setTimeout(connectToServer, 100);
     }
+
+    // 启动WebSocket连接状态检测
+    wsCheckInterval = setInterval(checkWebSocketConnection, 10000); // 每10秒检测一次
   });
 
   // 初始更新连接状态指示器
@@ -739,6 +785,44 @@ document.addEventListener('DOMContentLoaded', function () {
       statusText.textContent = '屏幕已经处于唤醒状态';
     } else {
       statusText.textContent = 'WebSocket未连接，无法唤醒屏幕';
+    }
+  });
+
+  // 添加页面可见性变化事件处理
+  document.addEventListener('visibilitychange', function () {
+    isPageVisible = document.visibilityState === 'visible';
+    console.log(`页面可见性变化: ${isPageVisible ? '可见' : '不可见'}`);
+
+    if (isPageVisible) {
+      // 页面变为可见时，检查连接状态
+      if (socket && !socket.connected) {
+        console.log('页面恢复可见，检测到WebSocket断开，尝试重连...');
+        connectToServer();
+      }
+    } else {
+      // 页面变为不可见时，发送保持连接的消息
+      if (socket && socket.connected) {
+        console.log('页面进入后台，发送保持连接消息...');
+        // 可以添加一个空的事件来保持连接活跃
+        socket.emit('keep_alive');
+      }
+    }
+  });
+
+  // 在iOS设备上，添加额外的事件监听器
+  window.addEventListener('pagehide', function () {
+    isPageVisible = false;
+    console.log('页面隐藏 (iOS特定事件)');
+    if (socket && socket.connected) {
+      socket.emit('keep_alive');
+    }
+  });
+
+  window.addEventListener('pageshow', function () {
+    isPageVisible = true;
+    console.log('页面显示 (iOS特定事件)');
+    if (socket && !socket.connected) {
+      connectToServer();
     }
   });
 }); 
