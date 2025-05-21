@@ -4,10 +4,23 @@ import subprocess
 import os
 import time
 import ssl
+import threading
+import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# 屏幕唤醒状态管理
+screen_wake_status = {
+    "is_active": False,
+    "end_time": None,
+    "duration_minutes": 0
+}
+
+# 记录今天是否已经有用户触发了屏幕唤醒
+first_user_wake_triggered = False
+first_user_wake_date = None
 
 # SSL证书路径（可以根据需要修改）
 SSL_CERT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cert', 'cert.pem')
@@ -141,17 +154,124 @@ def pause_switch_resume(direction):
         print(f"执行桌面切换过程出错: {e}")
         return False
 
+# 屏幕唤醒相关函数
+def wake_screen(duration_minutes):
+    """唤醒屏幕并设置持续时间"""
+    # 使用全局变量
+    global screen_wake_status
+    
+    # 使用caffeinate命令防止系统睡眠
+    # -u 选项特别用于保持屏幕处于唤醒状态
+    # -t 选项设置持续时间（秒）
+    duration_seconds = duration_minutes * 60
+    
+    # 设置结束时间
+    end_time = datetime.datetime.now() + datetime.timedelta(minutes=duration_minutes)
+    
+    # 更新唤醒状态
+    screen_wake_status["is_active"] = True
+    screen_wake_status["end_time"] = end_time
+    screen_wake_status["duration_minutes"] = duration_minutes
+    
+    # 使用线程运行命令，避免阻塞主线程
+    def run_caffeinate():
+        # 使用全局变量
+        global screen_wake_status
+        
+        try:
+            subprocess.run(["caffeinate", "-u", "-t", str(duration_seconds)], check=True)
+            print(f"屏幕已唤醒，持续{duration_minutes}分钟")
+            
+            # 命令执行完成后更新状态
+            screen_wake_status["is_active"] = False
+            screen_wake_status["end_time"] = None
+            screen_wake_status["duration_minutes"] = 0
+            
+            # 通知所有客户端唤醒结束
+            socketio.emit('wake_status_update', get_wake_status())
+        except Exception as e:
+            print(f"屏幕唤醒出错: {e}")
+            # 出错时也更新状态
+            screen_wake_status["is_active"] = False
+            screen_wake_status["end_time"] = None
+            screen_wake_status["duration_minutes"] = 0
+            socketio.emit('wake_status_update', get_wake_status())
+    
+    # 启动线程
+    wake_thread = threading.Thread(target=run_caffeinate)
+    wake_thread.daemon = True
+    wake_thread.start()
+    
+    return get_wake_status()
+
+def get_wake_status():
+    """获取当前屏幕唤醒状态"""
+    global screen_wake_status
+    
+    status = {
+        "is_active": screen_wake_status["is_active"],
+        "duration_minutes": screen_wake_status["duration_minutes"],
+        "remaining_seconds": 0
+    }
+    
+    # 如果唤醒状态活跃，计算剩余时间
+    if status["is_active"] and screen_wake_status["end_time"]:
+        now = datetime.datetime.now()
+        if now < screen_wake_status["end_time"]:
+            remaining = screen_wake_status["end_time"] - now
+            status["remaining_seconds"] = int(remaining.total_seconds())
+        else:
+            # 已经过期，但状态未更新
+            status["is_active"] = False
+            status["remaining_seconds"] = 0
+            screen_wake_status["is_active"] = False
+    
+    return status
+
 # WebSocket事件处理
 @socketio.on('connect')
 def handle_connect():
     """客户端连接时的处理"""
+    global first_user_wake_triggered, first_user_wake_date
+    
+    # 检查是否是当天第一个用户
+    current_date = datetime.datetime.now().date()
+    
+    # 检查日期变更，重置第一用户标记
+    if first_user_wake_date is not None and current_date != first_user_wake_date:
+        first_user_wake_triggered = False
+    
     # 向客户端发送当前状态
     current_volume = get_current_volume()
+    wake_status = get_wake_status()
+    
     emit('status_update', {
         'status': '已连接',
         'current_volume': current_volume
     })
+    
+    # 发送当前屏幕唤醒状态
+    emit('wake_status_update', wake_status)
     print("客户端已连接")
+    
+    # 如果是今天的第一个用户并且屏幕尚未唤醒，则自动唤醒屏幕
+    if not first_user_wake_triggered and not wake_status["is_active"]:
+        first_user_wake_triggered = True
+        first_user_wake_date = current_date
+        # 唤醒屏幕 (2小时)
+        wake_status = wake_screen(120)
+        
+        # 向当前客户端发送唤醒成功的响应
+        emit('wake_screen_response', {
+            "success": True,
+            "message": "屏幕已自动唤醒，持续120分钟",
+            "wake_status": wake_status,
+            "auto_triggered": True
+        })
+        
+        # 向所有客户端广播唤醒状态
+        socketio.emit('wake_status_update', wake_status)
+        print("第一个用户自动触发屏幕唤醒")
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -287,6 +407,36 @@ def handle_switch_desktop(data):
         "success": success, 
         "direction": direction
     })
+
+@socketio.on('wake_screen')
+def handle_wake_screen(data):
+    """处理屏幕唤醒请求"""
+    duration_minutes = int(data.get('duration_minutes', 120))
+    
+    # 检查当前是否已经在唤醒状态
+    current_status = get_wake_status()
+    if current_status["is_active"]:
+        emit('error', {"error": "屏幕已经处于唤醒状态"})
+        return
+    
+    # 唤醒屏幕
+    wake_status = wake_screen(duration_minutes)
+    
+    # 向发送请求的客户端发送响应
+    emit('wake_screen_response', {
+        "success": True,
+        "message": f"屏幕已唤醒，持续{duration_minutes}分钟",
+        "wake_status": wake_status
+    })
+    
+    # 向所有客户端广播唤醒状态
+    socketio.emit('wake_status_update', wake_status)
+
+@socketio.on('get_wake_status')
+def handle_get_wake_status():
+    """获取屏幕唤醒状态"""
+    wake_status = get_wake_status()
+    emit('wake_status_update', wake_status)
 
 # 主页路由
 @app.route('/')

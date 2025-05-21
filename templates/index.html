@@ -13,67 +13,99 @@
 </head>
 
 <body>
-  <h1>Apple TV 遥控器</h1>
-
-  <div class="card connection-card">
-    <div class="connection-info">
-      <div id="connection-indicator" class="connection-dot disconnected"></div>
-      <span id="connection-status">WebSocket未连接</span>
-      <button id="connect-btn" class="btn">连接</button>
+  <div class="compact-header">
+    <div class="header-title">
+      <h1>Apple TV 遥控器</h1>
+    </div>
+    <div class="header-controls">
+      <div class="connection-status">
+        <div id="connection-indicator" class="connection-dot disconnected"></div>
+        <span id="connection-status">未连接</span>
+      </div>
+      <button id="connect-btn" class="btn btn-small">连接</button>
+      <button id="wake-screen-btn" class="btn btn-small" disabled>
+        <i class="fas fa-tv"></i> 唤醒
+      </button>
+    </div>
+    <div id="wake-countdown-container" class="hidden">
+      <span>屏幕唤醒: <span id="wake-countdown">0</span> 剩余</span>
+      <div class="progress-bar-container">
+        <div id="wake-progress-bar"></div>
+      </div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-        <path
-          d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" />
-        <path d="M13.293 7.293 8.586 12l4.707 4.707 1.414-1.414L11.414 12l3.293-3.293z" />
-      </svg>
-      <span>导航控制</span>
-    </div>
-    <div class="directional-pad">
-      <button id="arrow-up-btn" class="directional-button button-up" disabled aria-label="上">
-        <i class="fas fa-chevron-up"></i>
+  <!-- 音量控制卡片 - 更紧凑的布局 -->
+  <div class="card compact-volume-card">
+    <div class="compact-volume-control">
+      <button id="volume-down-btn" class="ios-volume-button" disabled aria-label="减小音量">
+        <i class="fas fa-minus"></i>
       </button>
-      <button id="arrow-right-btn" class="directional-button button-right" disabled aria-label="右">
-        <i class="fas fa-chevron-right"></i>
-      </button>
-      <button id="arrow-down-btn" class="directional-button button-down" disabled aria-label="下">
-        <i class="fas fa-chevron-down"></i>
-      </button>
-      <button id="arrow-left-btn" class="directional-button button-left" disabled aria-label="左">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-      <button id="f-key-btn" class="directional-button button-center" disabled aria-label="确认">
-        <i class="fas fa-check"></i>
-      </button>
-    </div>
 
-    <div id="current-volume" class="hidden volume-section">
-      <h3 style="margin: 24px 0 16px; font-size: 16px; font-weight: 500; text-align: center;">音量控制</h3>
-      <p style="text-align: center; margin-bottom: 8px;">当前音量: <span id="volume-value">0</span>%</p>
-      <div class="volume-control">
-        <button id="volume-down-btn" aria-label="减小音量"><i class="fas fa-minus"></i></button>
-        <div class="volume-display">
-          <div class="volume-slider">
-            <div id="volume-track" class="volume-track">
-              <div id="volume-level" class="volume-level"></div>
-              <div id="volume-handle" class="volume-handle"></div>
-            </div>
+      <div class="volume-slider-container">
+        <p class="volume-value-display">当前音量: <span id="volume-value">0</span>%</p>
+        <div class="ios-volume-slider">
+          <div id="volume-track" class="ios-volume-track">
+            <div id="volume-level" class="ios-volume-level"></div>
+            <div id="volume-handle" class="ios-volume-handle"></div>
           </div>
         </div>
-        <button id="volume-up-btn" aria-label="增大音量"><i class="fas fa-plus"></i></button>
       </div>
-      <div style="text-align: center; margin-top: 12px;">
-        <button id="mute-btn" class="icon-button" aria-label="静音">
-          <i class="fas fa-volume-mute"></i> 静音
-        </button>
+
+      <button id="volume-up-btn" class="ios-volume-button" disabled aria-label="增大音量">
+        <i class="fas fa-plus"></i>
+      </button>
+
+      <button id="mute-btn" class="ios-volume-button" disabled>
+        <i class="fas fa-volume-mute"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- 导航和视频控制卡片 - 并排布局 -->
+  <div class="card controls-card">
+    <div class="controls-container">
+      <!-- 导航控制区 - 左侧 -->
+      <div class="nav-controls-side">
+        <div class="directional-pad">
+          <button id="arrow-up-btn" class="directional-button button-up" disabled aria-label="上">
+            <i class="fas fa-chevron-up"></i>
+          </button>
+          <button id="arrow-right-btn" class="directional-button button-right" disabled aria-label="右">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <button id="arrow-down-btn" class="directional-button button-down" disabled aria-label="下">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <button id="arrow-left-btn" class="directional-button button-left" disabled aria-label="左">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button id="f-key-btn" class="directional-button button-center" disabled aria-label="全屏">
+            <i class="fas fa-expand"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 视频控制区 - 右侧 -->
+      <div class="video-controls-side">
+        <div class="media-controls-container">
+          <!-- 播放/暂停按钮 -->
+          <button id="play-pause-btn" class="media-button" disabled aria-label="播放/暂停">
+            <i class="fas fa-play"></i>
+          </button>
+          <!-- 空格按钮 -->
+          <button id="space-btn" class="media-button" disabled aria-label="空格键">
+            <svg width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="1" width="22" height="12" rx="3" stroke="white" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
-    <div style="margin-top: 24px;">
-      <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 500; text-align: center;">桌面切换</h3>
+    <!-- 桌面切换区 -->
+    <div class="desktop-switch">
+      <h3>桌面切换</h3>
       <div class="btn-group">
         <button id="desktop-left-btn" class="btn btn-warning" disabled>
           <i class="fas fa-film"></i> 电影
@@ -87,32 +119,7 @@
 
   <div class="card">
     <div class="card-title">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-        <path
-          d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" />
-        <path d="m9 17 8-5-8-5z" />
-      </svg>
-      <span>视频控制</span>
-    </div>
-    <div class="media-controls">
-      <button id="play-btn" class="media-button" disabled aria-label="播放">
-        <i class="fas fa-play"></i>
-      </button>
-      <button id="space-btn" class="media-button large blue-button" disabled aria-label="播放/暂停">
-        <i class="fas fa-play-pause"></i>
-      </button>
-      <button id="pause-btn" class="media-button" disabled aria-label="暂停">
-        <i class="fas fa-pause"></i>
-      </button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-        <path
-          d="M20 8h-5.612l1.123-3.367c.202-.608.1-1.282-.275-1.802S14.253 2 13.612 2H12c-.297 0-.578.132-.769.36L6.531 8H4c-1.103 0-2 .897-2 2v9c0 1.103.897 2 2 2h13.307a2.01 2.01 0 0 0 1.873-1.298l2.757-7.351A1 1 0 0 0 22 12v-2c0-1.103-.897-2-2-2zM4 10h2v9H4v-9zm16 2-2.857 7.616c-.228.561-.868.384-1.31.384H8V9.158l4.612-5.158h1l-1.202 3.607c-.241.725.259 1.393 1.002 1.393H20v3z" />
-      </svg>
+      <i class="fas fa-external-link-alt"></i>
       <span>发送网页</span>
     </div>
     <div class="form-group">

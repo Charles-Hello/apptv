@@ -12,18 +12,23 @@ document.addEventListener('DOMContentLoaded', function () {
   const muteBtn = document.getElementById('mute-btn');
 
   // 控制按钮
-  const playBtn = document.getElementById('play-btn');
-  const pauseBtn = document.getElementById('pause-btn');
-  const spaceBtn = document.getElementById('space-btn');
+  const playPauseBtn = document.getElementById('play-pause-btn');
   const arrowUpBtn = document.getElementById('arrow-up-btn');
   const arrowDownBtn = document.getElementById('arrow-down-btn');
   const arrowLeftBtn = document.getElementById('arrow-left-btn');
   const arrowRightBtn = document.getElementById('arrow-right-btn');
   const fKeyBtn = document.getElementById('f-key-btn');
+  const spaceBtn = document.getElementById('space-btn');
   const desktopLeftBtn = document.getElementById('desktop-left-btn');
   const desktopRightBtn = document.getElementById('desktop-right-btn');
   const volumeDownBtn = document.getElementById('volume-down-btn');
   const volumeUpBtn = document.getElementById('volume-up-btn');
+
+  // 屏幕唤醒相关
+  const wakeScreenBtn = document.getElementById('wake-screen-btn');
+  const wakeCountdownContainer = document.getElementById('wake-countdown-container');
+  const wakeCountdown = document.getElementById('wake-countdown');
+  const wakeProgressBar = document.getElementById('wake-progress-bar');
 
   // URL发送相关
   const urlInput = document.getElementById('url-input');
@@ -44,6 +49,13 @@ document.addEventListener('DOMContentLoaded', function () {
   let isConnected = false;
   let isMuted = false; // 添加静音状态标志
 
+  // 屏幕唤醒状态
+  let isScreenAwake = false;
+  let wakeEndTime = null;
+  let wakeCountdownTimer = null;
+  let wakeTotalSeconds = 0;
+  let wakeRemainingSeconds = 0;
+
   // 更新连接状态指示器
   function updateConnectionIndicator(status) {
     // 移除所有状态类
@@ -52,41 +64,54 @@ document.addEventListener('DOMContentLoaded', function () {
     switch (status) {
       case 'connected':
         connectionDot.classList.add('connected');
-        connectionStatus.textContent = 'WebSocket已连接';
+        connectionStatus.textContent = '已连接';
         break;
       case 'connecting':
         connectionDot.classList.add('disconnected');
-        connectionStatus.textContent = '正在连接...';
+        connectionStatus.textContent = '连接中...';
         break;
       case 'disconnected':
         connectionDot.classList.add('disconnected');
-        connectionStatus.textContent = 'WebSocket未连接';
+        connectionStatus.textContent = '未连接';
         break;
       default:
-        connectionStatus.textContent = '连接状态未知';
+        connectionStatus.textContent = '未知';
     }
   }
 
   // 启用/禁用按钮
   function enableButtons(enable) {
     sendUrlBtn.disabled = !enable;
-    playBtn.disabled = !enable;
-    pauseBtn.disabled = !enable;
-    spaceBtn.disabled = !enable;
+    playPauseBtn.disabled = !enable;
     arrowUpBtn.disabled = !enable;
     arrowDownBtn.disabled = !enable;
     arrowLeftBtn.disabled = !enable;
     arrowRightBtn.disabled = !enable;
     fKeyBtn.disabled = !enable;
+    spaceBtn.disabled = !enable;
     volumeDownBtn.disabled = !enable;
     volumeUpBtn.disabled = !enable;
     desktopLeftBtn.disabled = !enable;
     desktopRightBtn.disabled = !enable;
     muteBtn.disabled = !enable;
 
+    // 屏幕唤醒按钮根据当前唤醒状态决定是否禁用
+    wakeScreenBtn.disabled = !enable || isScreenAwake;
+
     // 检查URL输入框的值，如果为空则禁用发送按钮
     if (urlInput.value.trim() === '') {
       sendUrlBtn.disabled = true;
+    }
+  }
+
+  // 更新播放/暂停按钮状态
+  function updatePlayPauseButton() {
+    if (isPlaying) {
+      playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      playPauseBtn.setAttribute('aria-label', '暂停');
+    } else {
+      playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+      playPauseBtn.setAttribute('aria-label', '播放');
     }
   }
 
@@ -128,6 +153,9 @@ document.addEventListener('DOMContentLoaded', function () {
           updateUrlHistory();
           urlHistoryContainer.classList.remove('hidden');
         }
+
+        // 获取屏幕唤醒状态
+        socket.emit('get_wake_status');
       });
 
       // 断开连接事件
@@ -161,6 +189,12 @@ document.addEventListener('DOMContentLoaded', function () {
         updateVolumeDisplay(data.current_volume);
         statusText.textContent = `${data.status}`;
 
+        // 更新播放状态
+        if (data.is_playing !== undefined) {
+          isPlaying = data.is_playing;
+          updatePlayPauseButton();
+        }
+
         // 如果初始音量为0，确保lastNonZeroVolume不为0
         if (data.current_volume === 0 && lastNonZeroVolume === 0) {
           lastNonZeroVolume = 50; // 默认值
@@ -180,28 +214,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
 
+      // 视频播放状态更新
+      socket.on('playback_state_update', function (data) {
+        isPlaying = data.is_playing;
+        updatePlayPauseButton();
+        statusText.textContent = isPlaying ? '正在播放' : '已暂停';
+      });
+
       // 按键响应
       socket.on('key_press_response', function (data) {
         if (data.success) {
           statusText.textContent = `按键 ${data.direction} 执行成功`;
         } else {
           statusText.textContent = `按键 ${data.direction} 执行失败`;
-        }
-      });
-
-      // 播放/暂停响应
-      socket.on('play_pause_response', function (data) {
-        if (data.success) {
-          statusText.textContent = `播放/暂停执行成功`;
-          // 切换播放/暂停图标状态
-          isPlaying = !isPlaying;
-          if (isPlaying) {
-            spaceBtn.innerHTML = '<i class="fas fa-pause"></i>';
-          } else {
-            spaceBtn.innerHTML = '<i class="fas fa-play"></i>';
-          }
-        } else {
-          statusText.textContent = `播放/暂停执行失败`;
         }
       });
 
@@ -231,6 +256,26 @@ document.addEventListener('DOMContentLoaded', function () {
           addToUrlHistory(data.url);
         } else {
           statusText.textContent = `URL打开失败`;
+        }
+      });
+
+      // 屏幕唤醒状态更新
+      socket.on('wake_status_update', function (data) {
+        updateWakeScreenStatus(data);
+      });
+
+      // 屏幕唤醒响应
+      socket.on('wake_screen_response', function (data) {
+        if (data.success) {
+          // 如果是自动触发的，显示不同的消息
+          if (data.auto_triggered) {
+            statusText.textContent = "已自动唤醒屏幕";
+          } else {
+            statusText.textContent = data.message;
+          }
+          updateWakeScreenStatus(data.wake_status);
+        } else {
+          statusText.textContent = `屏幕唤醒失败: ${data.error || '未知错误'}`;
         }
       });
 
@@ -340,9 +385,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 更新静音按钮图标
     if (isMuted) {
-      muteBtn.innerHTML = '<i class="fas fa-volume-up"></i> 恢复音量';
+      muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
     } else {
-      muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i> 静音';
+      muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
     }
   }
 
@@ -418,31 +463,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // 播放按钮
-  playBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('video_control', { action: 'play' });
-      statusText.textContent = '发送播放命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法控制播放';
-    }
-  });
-
-  // 暂停按钮
-  pauseBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('video_control', { action: 'pause' });
-      statusText.textContent = '发送暂停命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法暂停视频';
-    }
-  });
-
   // 播放/暂停按钮
-  spaceBtn.addEventListener('click', function () {
+  playPauseBtn.addEventListener('click', function () {
     if (socket && socket.connected) {
-      socket.emit('play_pause');
-      statusText.textContent = '发送播放/暂停命令';
+      if (isPlaying) {
+        // 当前是播放状态，发送暂停命令
+        socket.emit('video_control', { action: 'pause' });
+        statusText.textContent = '发送暂停命令';
+        isPlaying = false;
+      } else {
+        // 当前是暂停状态，发送播放命令
+        socket.emit('video_control', { action: 'play' });
+        statusText.textContent = '发送播放命令';
+        isPlaying = true;
+      }
+      // 更新按钮状态
+      updatePlayPauseButton();
     } else {
       statusText.textContent = 'WebSocket未连接，无法控制播放';
     }
@@ -492,7 +528,17 @@ document.addEventListener('DOMContentLoaded', function () {
   fKeyBtn.addEventListener('click', function () {
     if (socket && socket.connected) {
       socket.emit('key_press', { direction: 'f' });
-      statusText.textContent = '发送确认键命令';
+      statusText.textContent = '发送全屏命令';
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法发送命令';
+    }
+  });
+
+  // 空格键
+  spaceBtn.addEventListener('click', function () {
+    if (socket && socket.connected) {
+      socket.emit('play_pause');
+      statusText.textContent = '发送空格键命令';
     } else {
       statusText.textContent = 'WebSocket未连接，无法发送命令';
     }
@@ -608,4 +654,91 @@ document.addEventListener('DOMContentLoaded', function () {
   // 初始更新连接状态指示器
   updateConnectionIndicator('disconnected');
   enableButtons(false);
+
+  // 更新屏幕唤醒状态
+  function updateWakeScreenStatus(status) {
+    isScreenAwake = status.is_active;
+
+    // 根据状态启用/禁用唤醒按钮
+    wakeScreenBtn.disabled = !isConnected || isScreenAwake;
+
+    // 更新唤醒按钮文字
+    if (isScreenAwake) {
+      wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 已唤醒';
+      // 显示倒计时
+      wakeCountdownContainer.classList.remove('hidden');
+
+      // 设置总时长和剩余时间
+      wakeTotalSeconds = status.duration_minutes * 60;
+      wakeRemainingSeconds = status.remaining_seconds;
+
+      // 更新倒计时显示
+      updateWakeCountdown();
+
+      // 如果之前有计时器，先清除
+      if (wakeCountdownTimer) {
+        clearInterval(wakeCountdownTimer);
+      }
+
+      // 启动倒计时
+      wakeCountdownTimer = setInterval(function () {
+        if (wakeRemainingSeconds > 0) {
+          wakeRemainingSeconds--;
+          updateWakeCountdown();
+        } else {
+          // 倒计时结束，重置状态
+          clearInterval(wakeCountdownTimer);
+          isScreenAwake = false;
+          wakeScreenBtn.disabled = !isConnected;
+          wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 唤醒';
+          wakeCountdownContainer.classList.add('hidden');
+        }
+      }, 1000);
+    } else {
+      // 重置唤醒按钮
+      wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 唤醒';
+      // 隐藏倒计时
+      wakeCountdownContainer.classList.add('hidden');
+
+      // 清除倒计时
+      if (wakeCountdownTimer) {
+        clearInterval(wakeCountdownTimer);
+        wakeCountdownTimer = null;
+      }
+    }
+  }
+
+  // 更新倒计时显示
+  function updateWakeCountdown() {
+    // 计算小时、分钟和秒
+    const hours = Math.floor(wakeRemainingSeconds / 3600);
+    const minutes = Math.floor((wakeRemainingSeconds % 3600) / 60);
+    const seconds = wakeRemainingSeconds % 60;
+
+    // 更新倒计时文本
+    if (hours > 0) {
+      wakeCountdown.textContent = `${hours}小时${minutes < 10 ? '0' : ''}${minutes}分`;
+    } else if (minutes > 0) {
+      wakeCountdown.textContent = `${minutes}分${seconds < 10 ? '0' : ''}${seconds}秒`;
+    } else {
+      wakeCountdown.textContent = `${seconds}秒`;
+    }
+
+    // 更新进度条
+    const percentage = (wakeRemainingSeconds / wakeTotalSeconds) * 100;
+    wakeProgressBar.style.width = `${percentage}%`;
+  }
+
+  // 屏幕唤醒按钮
+  wakeScreenBtn.addEventListener('click', function () {
+    if (socket && socket.connected && !isScreenAwake) {
+      socket.emit('wake_screen', { duration_minutes: 120 });
+      statusText.textContent = '正在唤醒屏幕...';
+      wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 已唤醒';
+    } else if (isScreenAwake) {
+      statusText.textContent = '屏幕已经处于唤醒状态';
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法唤醒屏幕';
+    }
+  });
 }); 

@@ -1,90 +1,104 @@
-# macOS控制服务器
+# Apple TV 遥控器
 
-这是一个简单的HTTP服务器，用于远程控制macOS电脑的键盘方向键和音量调节。包含美观的遥控器界面。
+一个基于 Flask 和 Socket.IO 的 Apple TV 远程控制应用，可以通过网页界面控制 Apple TV 或播放设备。
 
-## 功能
+![Apple TV 遥控器界面](readme/index.jpg)
 
-- 控制键盘上下箭头按键
-- 控制系统音量增加和减小（直接拖动滑块）
-- 控制媒体播放/暂停（空格键）
-- 获取系统状态信息
-- 遥控器样式的Web界面
+## 功能特点
 
-## 安装依赖
+- 📱 响应式网页界面，适配移动设备
+- 🎮 远程控制 Apple TV 和播放设备
+- 🔊 音量调节控制
+- ⏯️ 播放/暂停控制
+- 🖥️ 屏幕唤醒功能
+- 📱 双向通信 - 一台设备的操作可同步到所有连接设备
+- 🖼️ 桌面切换功能
+- 📺 电影/电视切换按钮
+
+## 系统要求
+
+- macOS (支持 `osascript` 命令)
+- Python 3.6+
+- 连接同一网络的设备用于遥控
+
+## 安装步骤
+
+1. 克隆仓库：
 
 ```bash
-pip install flask
+git clone https://github.com/yourusername/apptv.git
+cd apptv
 ```
 
-## 运行服务器
+2. 安装依赖：
 
 ```bash
-python demo.py
+pip install flask flask-socketio
 ```
 
-服务器将在`http://0.0.0.0:5003`上启动，可以从网络中的其他设备访问。
+3. 运行服务器：
+
+```bash
+python main.py
+```
+
+4. 通过浏览器访问：
+
+```
+http://[您电脑的IP地址]:5003
+```
+
+## 浏览器扩展
+
+项目包含一个油猴脚本，用于在浏览器中接收和处理远程命令：
+
+1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展
+2. 添加 `油猴插件/demo.js` 脚本到 Tampermonkey
 
 ## 使用方法
 
-### Web界面
+1. 确保您的计算机和控制设备在同一网络中
+2. 在计算机上运行服务器
+3. 在移动设备浏览器中访问服务器地址
+4. 使用界面控制 Apple TV 或播放设备
 
-访问 `http://[你的IP地址]:5003` 即可打开遥控器界面:
+### 主要功能
 
-- **调节音量**: 直接拖动音量滑块
-- **播放/暂停**: 点击紫色的播放/暂停按钮
-- **方向控制**: 点击蓝色的上下箭头按钮
+- **音量控制**：调整系统音量
+- **方向控制**：使用方向键控制导航
+- **播放控制**：播放/暂停当前媒体
+- **屏幕唤醒**：防止系统进入睡眠状态
+- **桌面切换**：在不同桌面间切换，适用于全屏应用
 
-### API接口
+## 技术实现
 
-如果需要直接调用API：
-
-#### 按键控制
-
-- `/key/up` - 模拟按下上箭头键
-- `/key/down` - 模拟按下下箭头键
-
-#### 音量控制
-
-- `/volume/up` - 增加系统音量5%
-- `/volume/down` - 减少系统音量5%
-- `/volume/set` - 直接设置系统音量（POST请求，需要JSON格式的volume参数）
-
-#### 播放控制
-
-- `/play_pause` - 控制媒体播放/暂停（模拟空格键）
-
-#### 状态查询
-
-- `/status` - 获取当前系统状态，包括音量信息
+- 后端：Flask + Flask-SocketIO
+- 前端：HTML + CSS + JavaScript + Socket.IO 客户端
+- 系统交互：通过 `osascript` 执行 AppleScript 命令
 
 ## 项目结构
 
 ```
 .
-├── demo.py          # 后端服务器
-├── static/          # 静态资源目录
-│   ├── styles.css   # 遥控器样式
-│   └── script.js    # 前端交互脚本
-├── templates/       # 模板目录
-│   └── index.html   # 遥控器界面
-└── README.md        # 项目说明
+├── main.py             # Flask 服务器和主要功能
+├── templates/          # HTML 模板
+│   └── index.html      # 遥控器界面
+├── static/             # 静态资源
+│   ├── styles.css      # CSS 样式
+│   ├── script.js       # 客户端 JavaScript
+│   └── icons/          # 图标资源
+└── 油猴插件/            # 浏览器扩展
+    └── demo.js         # 油猴脚本
 ```
 
-## 示例使用
+## 自定义
 
-在浏览器访问:
-```
-http://[你的IP地址]:5003
-```
+您可以根据需要修改以下内容：
 
-API调用示例:
-```
-# 获取状态
-curl http://[你的IP地址]:5003/status
+- 调整端口号（默认 5003）
+- 自定义界面样式
+- 添加更多控制功能
 
-# 控制播放/暂停
-curl http://[你的IP地址]:5003/play_pause
+## 许可证
 
-# 设置音量到50%
-curl -X POST -H "Content-Type: application/json" -d '{"volume":50}' http://[你的IP地址]:5003/volume/set
-``` 
+MIT 许可证 
