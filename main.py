@@ -234,14 +234,7 @@ def handle_connect():
     """客户端连接时的处理"""
     global first_user_wake_triggered, first_user_wake_date
     
-    # 检查是否是当天第一个用户
-    current_date = datetime.datetime.now().date()
-    
-    # 检查日期变更，重置第一用户标记
-    if first_user_wake_date is not None and current_date != first_user_wake_date:
-        first_user_wake_triggered = False
-    
-    # 向客户端发送当前状态
+    # 获取当前状态
     current_volume = get_current_volume()
     wake_status = get_wake_status()
     
@@ -254,10 +247,8 @@ def handle_connect():
     emit('wake_status_update', wake_status)
     print("客户端已连接")
     
-    # 如果是今天的第一个用户并且屏幕尚未唤醒，则自动唤醒屏幕
-    if not first_user_wake_triggered and not wake_status["is_active"]:
-        first_user_wake_triggered = True
-        first_user_wake_date = current_date
+    # 修改逻辑：只要屏幕未处于唤醒状态，无论是哪个用户，都自动唤醒屏幕
+    if not wake_status["is_active"]:
         # 唤醒屏幕 (2小时)
         wake_status = wake_screen(120)
         
@@ -271,7 +262,7 @@ def handle_connect():
         
         # 向所有客户端广播唤醒状态
         socketio.emit('wake_status_update', wake_status)
-        print("第一个用户自动触发屏幕唤醒")
+        print("用户连接触发屏幕唤醒")
 
 @socketio.on('disconnect')
 def handle_disconnect():
