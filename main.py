@@ -4,6 +4,8 @@ import subprocess
 import time
 import threading
 import datetime
+from 测试.focus_app import focus_app
+from cafe import sleep_mac, set_wake_time, setup_passwordless_sudo
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
@@ -116,9 +118,12 @@ def pause_switch_resume(direction):
             success = switch_desktop(direction)
             
             # 4. 等待切换完成
-            time.sleep(0.5)
+            time.sleep(0.5) 
             
-            # 5. 通过WebSocket发送播放命令给浏览器
+            # 5. 激活 Google Chrome
+            focus_app("Google Chrome")
+            
+            # 6. 通过WebSocket发送播放命令给浏览器
             socketio.emit('video_control_command', {
                 "action": "play",
                 "timestamp": int(__import__('time').time())
@@ -134,7 +139,7 @@ def pause_switch_resume(direction):
             
             # 2. 等待短暂时间，确保浏览器处理暂停命令
             time.sleep(0.5)
-            
+             
             # 3. 切换到app桌面
             success = switch_desktop(direction)
             
@@ -424,11 +429,65 @@ def handle_get_wake_status():
     wake_status = get_wake_status()
     emit('wake_status_update', wake_status)
 
+@socketio.on('system_sleep')
+def handle_system_sleep(data):
+    """处理系统睡眠请求"""
+    try:
+        # 通过WebSocket发送暂停命令给所有客户端
+        socketio.emit('video_control_command', {
+            "action": "pause",
+            "timestamp": int(__import__('time').time())
+        })
+        
+        # 等待短暂时间确保命令被执行
+        time.sleep(0.5)
+        
+        # 设置无密码执行pmset的权限
+        if setup_passwordless_sudo():
+            # 设置10秒后唤醒
+            set_wake_time()
+            
+            # 执行系统睡眠操作
+            sleep_mac()
+            
+            emit('system_sleep_response', {
+                "success": True,
+                "message": "系统正在进入睡眠状态，10秒后将自动唤醒"
+            })
+        else:
+            emit('system_sleep_response', {
+                "success": False,
+                "message": "无法配置无密码执行pmset的权限"
+            })
+    except Exception as e:
+        emit('system_sleep_response', {
+            "success": False,
+            "message": str(e)
+        })
+
 @socketio.on('keep_alive')
 def handle_keep_alive():
     """处理保持连接的心跳消息"""
     # 仅记录日志，不需要实际处理
     pass
+
+@socketio.on('quick_sleep_wake')
+def handle_quick_sleep_wake():
+    """处理快速睡眠唤醒请求来停止所有音频"""
+    try:
+        # 设置10秒后唤醒
+        set_wake_time()
+        # 立即睡眠
+        sleep_mac()
+        emit('quick_sleep_wake_response', {
+            "success": True,
+            "message": "系统将短暂睡眠并自动唤醒"
+        })
+    except Exception as e:
+        emit('quick_sleep_wake_response', {
+            "success": False,
+            "message": str(e)
+        })
 
 # 主页路由
 @app.route('/')

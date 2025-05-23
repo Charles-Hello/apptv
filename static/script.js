@@ -744,4 +744,24 @@ document.addEventListener('DOMContentLoaded', function () {
       connectToServer();
     }
   });
+
+  // 关机按钮的事件监听器
+  const sleepButton = document.getElementById('sleepButton');
+  sleepButton.addEventListener('click', function () {
+    if (socket && socket.connected) {
+      socket.emit('system_sleep', {});
+      statusText.textContent = '正在关闭所有媒体并进入睡眠...';
+
+      // 监听睡眠响应事件
+      socket.once('system_sleep_response', function (data) {
+        if (data.success) {
+          statusText.textContent = data.message;
+        } else {
+          statusText.textContent = '睡眠操作失败: ' + data.message;
+        }
+      });
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法执行关机操作';
+    }
+  });
 }); 
