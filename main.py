@@ -524,6 +524,4 @@ def send_url_http():
     })
 
 if __name__ == '__main__':
-    # 使用HTTP模式，避免证书问题
-    print("使用HTTP模式运行服务器")
     socketio.run(app, host='0.0.0.0', port=5003, debug=True)

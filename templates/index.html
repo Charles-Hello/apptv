@@ -87,11 +87,11 @@
         </div>
       </div>
 
-      <!-- 导航和视频控制卡片 - 并排布局 -->
-      <div class="card controls-card">
-        <div class="controls-container">
-          <!-- 导航控制区 - 左侧 -->
-          <div class="nav-controls-side">
+      <!-- 统一的控制区域 -->
+      <div class="unified-controls-card">
+        <div class="unified-controls-container">
+          <!-- 左侧导航控制 -->
+          <div class="nav-section">
             <div class="directional-pad">
               <button id="arrow-up-btn" class="directional-button button-up" disabled aria-label="上">
                 <i class="fas fa-chevron-up"></i>
@@ -111,24 +111,20 @@
             </div>
           </div>
 
-          <!-- 视频控制区 - 右侧 -->
-          <div class="video-controls-side">
-            <div class="media-controls-container">
-              <!-- 播放/暂停按钮 -->
-              <button id="play-pause-btn" class="media-button" disabled aria-label="播放/暂停">
-                <i class="fas fa-play"></i>
-              </button>
-              <!-- 空格按钮 -->
-              <button id="space-btn" class="media-button" disabled aria-label="空格键">
-                <svg width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="1" y="1" width="22" height="12" rx="3" stroke="white" stroke-width="2" />
-                </svg>
-              </button>
-            </div>
+          <!-- 右侧媒体控制 -->
+          <div class="media-section">
+            <button id="play-pause-btn" class="media-button" disabled aria-label="播放/暂停">
+              <i class="fas fa-play"></i>
+            </button>
+            <button id="space-btn" class="media-button" disabled aria-label="空格键">
+              <svg width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="22" height="12" rx="3" stroke="white" stroke-width="2" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        <!-- 桌面切换按钮 - 整合到控制区域 -->
+        <!-- 桌面切换按钮 -->
         <div class="desktop-switch-integrated">
           <div class="btn-group">
             <button id="desktop-left-btn" class="btn btn-warning" disabled>
