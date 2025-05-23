@@ -1,4 +1,4 @@
-* {
+﻿* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -37,16 +37,15 @@
 body {
     background-color: var(--apple-dark-bg);
     color: var(--apple-dark-text);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    margin: 0;
+    padding: 0;
     min-height: 100vh;
-    padding: 20px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
     line-height: 1.5;
 }
 
-/* 新的紧凑型头部样式 */
+/* 鏂扮殑绱у噾鍨嬪ご閮ㄦ牱寮?*/
 .compact-header {
     background: var(--apple-dark-card-bg);
     border-radius: 18px;
@@ -119,7 +118,7 @@ body {
     transition: width 1s linear;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .compact-header {
         padding: 12px;
@@ -400,45 +399,6 @@ input[type="url"]:focus {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
 }
 
-.history-list {
-    margin-top: 16px;
-    max-height: 220px;
-    overflow-y: auto;
-    border-radius: 12px;
-    border: 1px solid var(--apple-dark-border);
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.history-item {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--apple-dark-border);
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.history-item:last-child {
-    border-bottom: none;
-}
-
-.history-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.history-item svg {
-    margin-right: 12px;
-    flex-shrink: 0;
-    fill: var(--apple-dark-text-secondary);
-}
-
-.history-item span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--apple-dark-text);
-}
-
 /* Connection indicator */
 .connection-info {
     display: flex;
@@ -523,7 +483,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 中心确认按钮样式 */
+/* 涓績纭鎸夐挳鏍峰紡 */
 .button-center {
     top: 50%;
     left: 50%;
@@ -535,7 +495,7 @@ footer {
     z-index: 1;
 }
 
-/* 保持导航按钮的对齐位置 */
+/* 淇濇寔瀵艰埅鎸夐挳鐨勫榻愪綅缃?*/
 .button-up {
     top: 0;
     left: 50%;
@@ -628,7 +588,7 @@ footer {
     color: white;
 }
 
-/* 响应式设计 */
+/* 鍝嶅簲寮忚璁?*/
 @media (max-width: 480px) {
     body {
         padding: 16px;
@@ -665,7 +625,7 @@ footer {
     }
 }
 
-/* 添加连接卡片的样式 */
+/* 娣诲姞杩炴帴鍗＄墖鐨勬牱寮?*/
 .connection-card {
     padding: 16px;
     margin-bottom: 16px;
@@ -703,7 +663,7 @@ footer {
     margin-right: 16px;
 }
 
-/* 连接卡片中的按钮样式 */
+/* 杩炴帴鍗＄墖涓殑鎸夐挳鏍峰紡 */
 .connection-card .btn {
     margin: 0;
     padding: 8px 16px;
@@ -711,7 +671,7 @@ footer {
     width: auto;
 }
 
-/* 音量控制区样式 */
+/* 闊抽噺鎺у埗鍖烘牱寮?*/
 .volume-section {
     margin-top: 24px;
     border-top: 1px solid var(--apple-border);
@@ -751,7 +711,7 @@ footer {
     margin-right: 6px;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .connection-card {
         padding: 12px;
@@ -805,7 +765,7 @@ footer {
     margin-top: 8px;
 }
 
-/* 音量控制和导航控制的并排布局 */
+/* 闊抽噺鎺у埗鍜屽鑸帶鍒剁殑骞舵帓甯冨眬 */
 .controls-container {
     display: flex;
     flex-direction: row;
@@ -814,7 +774,7 @@ footer {
     margin-bottom: 20px;
 }
 
-/* 左侧音量控制样式 */
+/* 宸︿晶闊抽噺鎺у埗鏍峰紡 */
 .volume-side {
     flex: 1;
     display: flex;
@@ -959,7 +919,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 右侧导航控制样式 */
+/* 鍙充晶瀵艰埅鎺у埗鏍峰紡 */
 .navigation-side {
     flex: 1;
     display: flex;
@@ -970,7 +930,7 @@ footer {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 桌面切换区域样式 */
+/* 妗岄潰鍒囨崲鍖哄煙鏍峰紡 */
 .desktop-switch {
     margin-top: 20px;
     border-top: 1px solid var(--apple-dark-border);
@@ -985,7 +945,7 @@ footer {
     color: var(--apple-dark-text);
 }
 
-/* 修改方向键控制面板样式 */
+/* 淇敼鏂瑰悜閿帶鍒堕潰鏉挎牱寮?*/
 .directional-pad {
     position: relative;
     width: 160px;
@@ -1027,7 +987,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 中心确认按钮样式 */
+/* 涓績纭鎸夐挳鏍峰紡 */
 .button-center {
     top: 50%;
     left: 50%;
@@ -1049,7 +1009,7 @@ footer {
     transform: translate(-50%, -50%);
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 768px) {
     .controls-container {
         flex-direction: column;
@@ -1094,7 +1054,7 @@ footer {
     }
 }
 
-/* 视频播放控制区域 */
+/* 瑙嗛鎾斁鎺у埗鍖哄煙 */
 .video-playback-controls, .video-controls-section {
     margin-top: 30px;
     border-top: 1px solid var(--apple-dark-border);
@@ -1157,7 +1117,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .media-button {
         width: 50px;
@@ -1166,7 +1126,7 @@ footer {
     }
 }
 
-/* 音量控制卡片样式 */
+/* 闊抽噺鎺у埗鍗＄墖鏍峰紡 */
 .volume-card {
     padding: 20px;
 }
@@ -1214,7 +1174,7 @@ footer {
     padding: 8px 20px;
 }
 
-/* 导航和视频控制布局 */
+/* 瀵艰埅鍜岃棰戞帶鍒跺竷灞€ */
 .directional-pad-container {
     display: flex;
     justify-content: center;
@@ -1235,7 +1195,7 @@ footer {
     margin: 15px 0;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .ios-volume-control-horizontal {
         flex-direction: row;
@@ -1254,7 +1214,7 @@ footer {
     }
 }
 
-/* 紧凑型音量控制卡片 */
+/* 绱у噾鍨嬮煶閲忔帶鍒跺崱鐗?*/
 .compact-volume-card {
     padding: 15px;
     background: #212121;
@@ -1284,7 +1244,7 @@ footer {
     padding: 5px 0;
 }
 
-/* 多色音量显示 */
+/* 澶氳壊闊抽噺鏄剧ず */
 .ios-volume-track {
     position: relative;
     height: 8px;
@@ -1315,7 +1275,7 @@ footer {
     transition: left 0.3s ease;
 }
 
-/* 音量控制按钮样式 */
+/* 闊抽噺鎺у埗鎸夐挳鏍峰紡 */
 .ios-volume-button {
     width: 40px;
     height: 40px;
@@ -1358,7 +1318,7 @@ footer {
     }
 }
 
-/* 导航和视频控制的并排布局 */
+/* 瀵艰埅鍜岃棰戞帶鍒剁殑骞舵帓甯冨眬 */
 .controls-card {
     padding: 20px;
     background: #212121;
@@ -1378,7 +1338,7 @@ footer {
     align-items: center;
 }
 
-/* 移除控制标题文字 */
+/* 绉婚櫎鎺у埗鏍囬鏂囧瓧 */
 .control-title {
     display: none;
 }
@@ -1399,7 +1359,7 @@ footer {
     justify-content: center;
 }
 
-/* 增强播放/暂停按钮样式 */
+/* 澧炲己鎾斁/鏆傚仠鎸夐挳鏍峰紡 */
 .media-button {
     width: 70px;
     height: 70px;
@@ -1432,7 +1392,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 调整全屏按钮图标样式 */
+/* 璋冩暣鍏ㄥ睆鎸夐挳鍥炬爣鏍峰紡 */
 .button-center {
     width: 70px;
     height: 70px;
@@ -1445,7 +1405,7 @@ footer {
     font-size: 22px;
 }
 
-/* 响应式调整 */
+/* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .media-controls-container {
         gap: 15px;
@@ -1458,7 +1418,7 @@ footer {
     }
 }
 
-/* 让按钮更接近参考图片的样式 */
+/* 璁╂寜閽洿鎺ヨ繎鍙傝€冨浘鐗囩殑鏍峰紡 */
 .ios-volume-button {
     width: 40px;
     height: 40px;
@@ -1492,7 +1452,7 @@ footer {
     height: 16px;
 }
 
-/* 导航控制按钮样式增强 - 增加按钮间距 */
+/* 瀵艰埅鎺у埗鎸夐挳鏍峰紡澧炲己 - 澧炲姞鎸夐挳闂磋窛 */
 .directional-pad {
     position: relative;
     width: 200px;
@@ -1527,7 +1487,7 @@ footer {
     transform: translate(-50%, -50%);
 }
 
-/* 重新调整导航按钮位置 - 增加间距 */
+/* 閲嶆柊璋冩暣瀵艰埅鎸夐挳浣嶇疆 - 澧炲姞闂磋窛 */
 .button-up {
     left: 50%;
     top: 0;
@@ -1550,4 +1510,141 @@ footer {
     left: 0;
     top: 50%;
     transform: translateY(-50%);
+}
+
+/* Tab瀵艰埅鏍忔牱寮?*/
+.tab-navigation {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--apple-dark-card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--apple-dark-border);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0;
+    z-index: 1000;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 12px;
+    color: var(--apple-dark-text-secondary);
+    min-width: 60px;
+}
+
+.tab-item.active {
+    color: var(--apple-dark-primary);
+    background: rgba(10, 132, 255, 0.1);
+}
+
+.tab-item:hover {
+    color: var(--apple-dark-text);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-item.active:hover {
+    color: var(--apple-dark-primary);
+    background: rgba(10, 132, 255, 0.15);
+}
+
+.tab-item i {
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.tab-item span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* 涓昏鍐呭鍖哄煙 */
+.main-content {
+    width: 100%;
+    height: 100vh;
+    padding-bottom: 80px; /* 涓哄簳閮╰ab瀵艰埅鐣欏嚭绌洪棿 */
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* Tab鍐呭鏍峰紡 */
+.tab-content {
+    display: none !important;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.tab-content.active {
+    display: block !important;
+}
+
+/* 閬ユ帶鍣╰ab鍐呭 */
+#remote-content.active {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    min-height: calc(100vh - 80px);
+    justify-content: flex-start;
+}
+
+/* 鐢靛奖tab鍐呭 */
+#movie-content {
+    padding: 0;
+}
+
+.movie-iframe-container {
+    width: 100%;
+    height: calc(100vh - 80px);
+    background: var(--apple-dark-bg);
+}
+
+#movie-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+}
+
+/* 鍝嶅簲寮忚皟鏁?*/
+@media (max-width: 480px) {
+    .tab-navigation {
+        padding: 6px 0;
+    }
+    
+    .tab-item {
+        padding: 6px 12px;
+        min-width: 50px;
+    }
+    
+    .tab-item i {
+        font-size: 18px;
+        margin-bottom: 2px;
+    }
+    
+    .tab-item span {
+        font-size: 10px;
+    }
+    
+    .main-content {
+        padding-bottom: 70px;
+    }
+    
+    .movie-iframe-container {
+        height: calc(100vh - 70px);
+    }
+    
+    #remote-content.active {
+        min-height: calc(100vh - 70px);
+        padding: 10px;
+    }
 } 

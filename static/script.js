@@ -1,4 +1,44 @@
 document.addEventListener('DOMContentLoaded', function () {
+  // Tab切换相关元素
+  const tabItems = document.querySelectorAll('.tab-item');
+  const tabContents = document.querySelectorAll('.tab-content');
+  const movieIframe = document.getElementById('movie-iframe');
+
+  // Tab切换函数
+  function switchTab(targetTab) {
+    // 移除所有active类
+    tabItems.forEach(item => item.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+
+    // 添加active类到目标tab
+    const targetTabItem = document.querySelector(`[data-tab="${targetTab}"]`);
+    const targetTabContent = document.getElementById(`${targetTab}-content`);
+
+    if (targetTabItem && targetTabContent) {
+      targetTabItem.classList.add('active');
+      targetTabContent.classList.add('active');
+
+      // 如果切换到电影tab，确保iframe已加载
+      if (targetTab === 'movie' && movieIframe) {
+        // 如果iframe还没有加载过，设置src
+        if (!movieIframe.src || movieIframe.src === 'about:blank') {
+          movieIframe.src = 'https://movie.tnanko.top/';
+        }
+      }
+    }
+  }
+
+  // 添加tab点击事件监听器
+  tabItems.forEach(item => {
+    item.addEventListener('click', function () {
+      const targetTab = this.getAttribute('data-tab');
+      switchTab(targetTab);
+    });
+  });
+
+  // 初始化 - 默认显示遥控器tab
+  switchTab('remote');
+
   // 获取DOM元素
   const volumeLevel = document.getElementById('volume-level');
   const volumeValue = document.getElementById('volume-value');
@@ -36,17 +76,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const wakeCountdown = document.getElementById('wake-countdown');
   const wakeProgressBar = document.getElementById('wake-progress-bar');
 
-  // URL发送相关
-  const urlInput = document.getElementById('url-input');
-  const sendUrlBtn = document.getElementById('send-url-btn');
-  const clearUrlBtn = document.getElementById('clear-url-btn');
-  const urlHistoryDiv = document.getElementById('url-history');
-  const urlHistoryContainer = document.getElementById('url-history-container');
-
-  // 保存当前音量和URL历史
+  // 保存当前音量
   let currentVolume = 0;
   let lastNonZeroVolume = 50; // 存储上一次非零音量值
-  let urlHistory = JSON.parse(localStorage.getItem('urlHistory') || '[]');
 
   // 初始化状态
   let isPlaying = false;
@@ -87,7 +119,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 启用/禁用按钮
   function enableButtons(enable) {
-    sendUrlBtn.disabled = !enable;
     playPauseBtn.disabled = !enable;
     arrowUpBtn.disabled = !enable;
     arrowDownBtn.disabled = !enable;
@@ -103,11 +134,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 屏幕唤醒按钮根据当前唤醒状态决定是否禁用
     wakeScreenBtn.disabled = !enable || isScreenAwake;
-
-    // 检查URL输入框的值，如果为空则禁用发送按钮
-    if (urlInput.value.trim() === '') {
-      sendUrlBtn.disabled = true;
-    }
   }
 
   // 更新播放/暂停按钮状态
@@ -165,12 +191,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // 显示音量控制
         volumeContainer.classList.remove('hidden');
-
-        // 显示历史记录
-        if (urlHistory.length > 0) {
-          updateUrlHistory();
-          urlHistoryContainer.classList.remove('hidden');
-        }
 
         // 获取屏幕唤醒状态
         socket.emit('get_wake_status');
@@ -263,17 +283,6 @@ document.addEventListener('DOMContentLoaded', function () {
           statusText.textContent = `已切换到${data.direction === 'left' ? '电影' : '电视'}桌面`;
         } else {
           statusText.textContent = `桌面切换失败`;
-        }
-      });
-
-      // URL发送响应
-      socket.on('open_url_response', function (data) {
-        if (data.success) {
-          statusText.textContent = `URL已成功打开`;
-          // 添加到历史记录
-          addToUrlHistory(data.url);
-        } else {
-          statusText.textContent = `URL打开失败`;
         }
       });
 
@@ -435,67 +444,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // 添加URL到历史记录
-  function addToUrlHistory(url) {
-    // 防止重复添加
-    if (urlHistory.includes(url)) {
-      // 移除旧的
-      urlHistory = urlHistory.filter(item => item !== url);
-    }
-
-    // 添加到开头
-    urlHistory.unshift(url);
-
-    // 限制最多保存5条记录
-    if (urlHistory.length > 5) {
-      urlHistory.pop();
-    }
-
-    // 保存到本地存储
-    localStorage.setItem('urlHistory', JSON.stringify(urlHistory));
-
-    // 更新显示
-    updateUrlHistory();
-
-    // 显示历史记录容器
-    urlHistoryContainer.classList.remove('hidden');
-  }
-
-  // 更新URL历史记录显示
-  function updateUrlHistory() {
-    urlHistoryDiv.innerHTML = '';
-
-    urlHistory.forEach(url => {
-      const item = document.createElement('div');
-      item.className = 'history-item';
-
-      // 创建图标
-      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      icon.setAttribute('width', '16');
-      icon.setAttribute('height', '16');
-      icon.setAttribute('viewBox', '0 0 24 24');
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', 'M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z');
-      icon.appendChild(path);
-
-      // 创建文本
-      const text = document.createElement('span');
-      text.textContent = url;
-
-      item.appendChild(icon);
-      item.appendChild(text);
-
-      // 点击事件
-      item.addEventListener('click', function () {
-        urlInput.value = url;
-        // 激活发送按钮
-        sendUrlBtn.disabled = !isConnected;
-      });
-
-      urlHistoryDiv.appendChild(item);
-    });
-  }
-
   // 按钮事件监听
 
   // 连接/断开按钮
@@ -655,43 +603,6 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       statusText.textContent = 'WebSocket未连接，无法切换桌面';
     }
-  });
-
-  // 发送URL
-  sendUrlBtn.addEventListener('click', function () {
-    const url = urlInput.value.trim();
-    if (!url) {
-      statusText.textContent = '请输入有效的URL';
-      return;
-    }
-
-    // 确保URL包含http或https
-    let finalUrl = url;
-    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
-      finalUrl = 'https://' + finalUrl;
-      urlInput.value = finalUrl;
-    }
-
-    if (socket && socket.connected) {
-      socket.emit('open_url', { url: finalUrl });
-      statusText.textContent = '发送URL: ' + finalUrl;
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送URL';
-    }
-  });
-
-  // 清空URL输入框
-  clearUrlBtn.addEventListener('click', function () {
-    urlInput.value = '';
-    urlInput.focus();
-    // 禁用发送按钮
-    sendUrlBtn.disabled = true;
-  });
-
-  // URL输入框变化事件
-  urlInput.addEventListener('input', function () {
-    // 如果连接状态为已连接且输入框不为空，则启用发送按钮
-    sendUrlBtn.disabled = !(isConnected && this.value.trim() !== '');
   });
 
   // 自动连接（针对移动设备）
