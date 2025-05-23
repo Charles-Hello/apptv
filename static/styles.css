@@ -483,7 +483,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 涓績纭鎸夐挳鏍峰紡 */
+/* 涓績纭鎸夐挳鏍峰紡 */
 .button-center {
     top: 50%;
     left: 50%;
@@ -495,7 +495,7 @@ footer {
     z-index: 1;
 }
 
-/* 淇濇寔瀵艰埅鎸夐挳鐨勫榻愪綅缃?*/
+/* 淇濇寔瀵艰埅鎸夐挳鐨勫榻愪綅缃?*/
 .button-up {
     top: 0;
     left: 50%;
@@ -588,7 +588,7 @@ footer {
     color: white;
 }
 
-/* 鍝嶅簲寮忚璁?*/
+/* 鍝嶅簲寮忚璁?*/
 @media (max-width: 480px) {
     body {
         padding: 16px;
@@ -663,7 +663,7 @@ footer {
     margin-right: 16px;
 }
 
-/* 杩炴帴鍗＄墖涓殑鎸夐挳鏍峰紡 */
+/* 杩炴帴鍗＄墖涓殑鎸夐挳鏍峰紡 */
 .connection-card .btn {
     margin: 0;
     padding: 8px 16px;
@@ -765,7 +765,7 @@ footer {
     margin-top: 8px;
 }
 
-/* 闊抽噺鎺у埗鍜屽鑸帶鍒剁殑骞舵帓甯冨眬 */
+/* 闊抽噺鎺у埗鍜屽鑸帶鍒剁殑骞舵帓甯冨眬 */
 .controls-container {
     display: flex;
     flex-direction: row;
@@ -930,7 +930,7 @@ footer {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 妗岄潰鍒囨崲鍖哄煙鏍峰紡 */
+/* 桌面切换区域样式 */
 .desktop-switch {
     margin-top: 20px;
     border-top: 1px solid var(--apple-dark-border);
@@ -945,7 +945,18 @@ footer {
     color: var(--apple-dark-text);
 }
 
-/* 淇敼鏂瑰悜閿帶鍒堕潰鏉挎牱寮?*/
+/* 整合的桌面切换样式 */
+.desktop-switch-integrated {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--apple-dark-border);
+}
+
+.desktop-switch-integrated .btn-group {
+    margin-top: 0;
+}
+
+/* 淇敼鏂瑰悜閿帶鍒堕潰鏉挎牱寮?*/
 .directional-pad {
     position: relative;
     width: 160px;
@@ -987,7 +998,7 @@ footer {
     cursor: not-allowed;
 }
 
-/* 涓績纭鎸夐挳鏍峰紡 */
+/* 涓績纭鎸夐挳鏍峰紡 */
 .button-center {
     top: 50%;
     left: 50%;
@@ -1054,7 +1065,7 @@ footer {
     }
 }
 
-/* 瑙嗛鎾斁鎺у埗鍖哄煙 */
+/* 瑙嗛鎾斁鎺у埗鍖哄煙 */
 .video-playback-controls, .video-controls-section {
     margin-top: 30px;
     border-top: 1px solid var(--apple-dark-border);
@@ -1174,7 +1185,7 @@ footer {
     padding: 8px 20px;
 }
 
-/* 瀵艰埅鍜岃棰戞帶鍒跺竷灞€ */
+/* 瀵艰埅鍜岃棰戞帶鍒跺竷灞€ */
 .directional-pad-container {
     display: flex;
     justify-content: center;
@@ -1318,7 +1329,7 @@ footer {
     }
 }
 
-/* 瀵艰埅鍜岃棰戞帶鍒剁殑骞舵帓甯冨眬 */
+/* 瀵艰埅鍜岃棰戞帶鍒剁殑骞舵帓甯冨眬 */
 .controls-card {
     padding: 20px;
     background: #212121;
@@ -1338,7 +1349,7 @@ footer {
     align-items: center;
 }
 
-/* 绉婚櫎鎺у埗鏍囬鏂囧瓧 */
+/* 绉婚櫎鎺у埗鏍囬鏂囧瓧 */
 .control-title {
     display: none;
 }
@@ -1359,7 +1370,7 @@ footer {
     justify-content: center;
 }
 
-/* 澧炲己鎾斁/鏆傚仠鎸夐挳鏍峰紡 */
+/* 澧炲己鎾斁/鏆傚仠鎸夐挳鏍峰紡 */
 .media-button {
     width: 70px;
     height: 70px;
@@ -1418,7 +1429,7 @@ footer {
     }
 }
 
-/* 璁╂寜閽洿鎺ヨ繎鍙傝€冨浘鐗囩殑鏍峰紡 */
+/* 璁╂寜閽洿鎺ヨ繎鍙傝€冨浘鐗囩殑鏍峰紡 */
 .ios-volume-button {
     width: 40px;
     height: 40px;
@@ -1524,7 +1535,7 @@ footer {
     border-top: 1px solid var(--apple-dark-border);
     display: flex;
     justify-content: space-around;
-    padding: 8px 0;
+    padding: 4px 0;
     z-index: 1000;
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
 }
@@ -1533,12 +1544,12 @@ footer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px 16px;
+    padding: 4px 12px;
     cursor: pointer;
     transition: all 0.3s ease;
-    border-radius: 12px;
+    border-radius: 8px;
     color: var(--apple-dark-text-secondary);
-    min-width: 60px;
+    min-width: 50px;
 }
 
 .tab-item.active {
@@ -1557,25 +1568,25 @@ footer {
 }
 
 .tab-item i {
-    font-size: 20px;
-    margin-bottom: 4px;
+    font-size: 16px;
+    margin-bottom: 2px;
 }
 
 .tab-item span {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 500;
 }
 
-/* 涓昏鍐呭鍖哄煙 */
+/* 涓昏鍐呭鍖哄煙 */
 .main-content {
     width: 100%;
     height: 100vh;
-    padding-bottom: 80px; /* 涓哄簳閮╰ab瀵艰埅鐣欏嚭绌洪棿 */
+    padding-bottom: 50px;
     overflow-y: auto;
     box-sizing: border-box;
 }
 
-/* Tab鍐呭鏍峰紡 */
+/* Tab鍐呭鍖哄煙 */
 .tab-content {
     display: none !important;
     width: 100%;
@@ -1588,23 +1599,23 @@ footer {
     display: block !important;
 }
 
-/* 閬ユ帶鍣╰ab鍐呭 */
+/* 閬ユ帶鍣╰ab鍐呭鍖哄煙 */
 #remote-content.active {
     display: flex !important;
     flex-direction: column;
     align-items: center;
-    min-height: calc(100vh - 80px);
+    min-height: calc(100vh - 60px);
     justify-content: flex-start;
 }
 
-/* 鐢靛奖tab鍐呭 */
+/* 鐢靛奖tab鍐呭鍖哄煙 */
 #movie-content {
     padding: 0;
 }
 
 .movie-iframe-container {
     width: 100%;
-    height: calc(100vh - 80px);
+    height: calc(100vh - 50px);
     background: var(--apple-dark-bg);
 }
 
@@ -1618,33 +1629,33 @@ footer {
 /* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .tab-navigation {
-        padding: 6px 0;
+        padding: 3px 0;
     }
     
     .tab-item {
-        padding: 6px 12px;
-        min-width: 50px;
+        padding: 3px 8px;
+        min-width: 40px;
     }
     
     .tab-item i {
-        font-size: 18px;
-        margin-bottom: 2px;
+        font-size: 14px;
+        margin-bottom: 1px;
     }
     
     .tab-item span {
-        font-size: 10px;
+        font-size: 9px;
     }
     
     .main-content {
-        padding-bottom: 70px;
+        padding-bottom: 50px;
     }
     
     .movie-iframe-container {
-        height: calc(100vh - 70px);
+        height: calc(100vh - 50px);
     }
     
     #remote-content.active {
-        min-height: calc(100vh - 70px);
+        min-height: calc(100vh - 50px);
         padding: 10px;
     }
 } 
