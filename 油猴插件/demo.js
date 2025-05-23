@@ -187,27 +187,6 @@
     });
   }
 
-  // 模拟按键
-  function simulateKeyPress(key) {
-    console.log('模拟按键:', key);
-
-    // 创建一个键盘事件
-    const keyEvent = new KeyboardEvent('keydown', {
-      key: key,
-      code: 'Key' + key,
-      keyCode: key === 'F' ? 70 : key.charCodeAt(0),
-      which: key === 'F' ? 70 : key.charCodeAt(0),
-      bubbles: true,
-      cancelable: true
-    });
-
-    // 分发事件到document
-    document.dispatchEvent(keyEvent);
-
-    // 反馈给用户
-    console.log('已模拟按键:', key);
-  }
-
   // 连接WebSocket
   function connectWebSocket() {
     try {
@@ -289,6 +268,9 @@
         // 添加到历史记录
         addToHistory(url);
 
+        // 发送按键F操作到服务端
+        sendKeyPressToServer('f');
+
         // 直接在当前窗口打开URL，而不是新标签页
         window.location.href = url;
       } else {
@@ -296,6 +278,50 @@
       }
     } catch (e) {
       console.error('处理打开URL命令失败:', e);
+    }
+  }
+
+  // 发送按键操作到服务端
+  function sendKeyPressToServer(key) {
+    try {
+      if (socket && socket.connected) {
+        console.log('发送按键操作到服务端:', key);
+
+        socket.emit('key_press', {
+          direction: key
+        });
+
+        // 监听服务端响应
+        socket.once('key_press_response', function (response) {
+          console.log('按键操作响应:', response);
+          if (response.success) {
+            console.log(`按键 ${key} 操作成功`);
+          } else {
+            console.error(`按键 ${key} 操作失败`);
+          }
+        });
+
+        // 监听错误响应
+        socket.once('error', function (error) {
+          console.error('按键操作错误:', error);
+        });
+
+        // 显示通知
+        GM_notification({
+          title: '按键操作',
+          text: `已发送按键 ${key.toUpperCase()} 到服务端`,
+          timeout: 2000
+        });
+      } else {
+        console.warn('WebSocket未连接，无法发送按键操作');
+        GM_notification({
+          title: '按键操作失败',
+          text: 'WebSocket未连接',
+          timeout: 2000
+        });
+      }
+    } catch (e) {
+      console.error('发送按键操作失败:', e);
     }
   }
 
@@ -351,6 +377,7 @@
                 <div class="ws-controls">
                     <button id="btn-play">播放</button>
                     <button id="btn-pause">暂停</button>
+                    <button id="btn-key-f">按键F</button>
                 </div>
                 <div class="url-history">
                     <h4>历史记录</h4>
@@ -551,6 +578,7 @@
     if (isTargetWebsite) {
       const playBtn = document.getElementById('btn-play');
       const pauseBtn = document.getElementById('btn-pause');
+      const keyFBtn = document.getElementById('btn-key-f');
 
       if (playBtn) {
         playBtn.addEventListener('click', function () {
@@ -561,6 +589,12 @@
       if (pauseBtn) {
         pauseBtn.addEventListener('click', function () {
           handleVideoControl('pause');
+        });
+      }
+
+      if (keyFBtn) {
+        keyFBtn.addEventListener('click', function () {
+          sendKeyPressToServer('f');
         });
       }
     }
