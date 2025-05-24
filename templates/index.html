@@ -165,79 +165,120 @@
     window.isHttps = window.location.protocol === 'https:';
     console.log("当前使用" + (window.isHttps ? "HTTPS" : "HTTP") + "协议");
 
-    // 添加 iframe 滚动事件支持
+    // 简化的 iframe 滚动支持
     document.addEventListener('DOMContentLoaded', function () {
       const movieIframe = document.getElementById('movie-iframe');
       const movieContent = document.getElementById('movie-content');
 
-      // 监听父页面滚动事件
-      function handleParentScroll() {
-        // 检查当前是否在电影 tab
-        if (movieContent && movieContent.classList.contains('active') && movieIframe) {
-          try {
-            // 向 iframe 发送滚动测试消息
-            movieIframe.contentWindow.postMessage({
-              type: 'TEST_SCROLL',
-              message: '父页面滚动事件触发'
-            }, '*');
-          } catch (e) {
-            console.log('无法向iframe发送消息:', e);
-          }
+      let iframeScrollChecker = null;
+      let lastScrollCheck = 0;
+
+      // 检查 iframe 是否需要触发滚动加载
+      function checkIframeScroll() {
+        if (!movieContent || !movieContent.classList.contains('active') || !movieIframe) {
+          return;
+        }
+
+        try {
+          // 向 iframe 发送滚动检查消息
+          movieIframe.contentWindow.postMessage({
+            type: 'FORCE_SCROLL_CHECK',
+            timestamp: Date.now()
+          }, '*');
+        } catch (e) {
+          console.log('无法向iframe发送消息:', e);
         }
       }
 
-      // 监听多种滚动事件源
-      window.addEventListener('scroll', handleParentScroll, { passive: true });
-      document.addEventListener('scroll', handleParentScroll, { passive: true });
+      // 监听 Tab 切换
+      const tabItems = document.querySelectorAll('.tab-item');
+      tabItems.forEach(item => {
+        item.addEventListener('click', function () {
+          const targetTab = this.getAttribute('data-tab');
 
-      // 监听电影容器的滚动
-      if (movieContent) {
-        movieContent.addEventListener('scroll', handleParentScroll, { passive: true });
+          if (targetTab === 'movie') {
+            console.log('切换到电影 tab，启动滚动检查');
+
+            // 清除之前的定时器
+            if (iframeScrollChecker) {
+              clearInterval(iframeScrollChecker);
+            }
+
+            // 延迟启动检查，确保 iframe 完全加载
+            setTimeout(() => {
+              checkIframeScroll();
+
+              // 启动定期检查（更频繁）
+              iframeScrollChecker = setInterval(() => {
+                checkIframeScroll();
+              }, 2000); // 每2秒检查一次
+            }, 1000);
+
+          } else {
+            // 切换到其他 tab 时停止检查
+            if (iframeScrollChecker) {
+              clearInterval(iframeScrollChecker);
+              iframeScrollChecker = null;
+            }
+          }
+        });
+      });
+
+      // iframe 加载完成后的处理
+      if (movieIframe) {
+        movieIframe.addEventListener('load', function () {
+          console.log('电影 iframe 加载完成');
+
+          // 如果当前在电影 tab，立即开始检查
+          if (movieContent && movieContent.classList.contains('active')) {
+            setTimeout(() => {
+              checkIframeScroll();
+
+              // 启动定期检查
+              if (iframeScrollChecker) {
+                clearInterval(iframeScrollChecker);
+              }
+              iframeScrollChecker = setInterval(() => {
+                checkIframeScroll();
+              }, 2000);
+            }, 2000);
+          }
+        });
       }
 
       // 监听来自 iframe 的消息
       window.addEventListener('message', function (event) {
         if (event.data && event.data.type === 'IFRAME_LOADED') {
-          console.log('收到iframe加载完成消息:', event.data);
+          console.log('收到 iframe 加载完成消息');
 
-          // iframe 加载完成后，添加一个定期检查滚动的机制
-          setInterval(() => {
-            handleParentScroll();
-          }, 3000); // 每3秒检查一次滚动状态
+          // iframe 内容加载完成后，开始更频繁的检查
+          setTimeout(() => {
+            checkIframeScroll();
+          }, 1000);
+        }
+
+        if (event.data && event.data.type === 'SCROLL_STATUS') {
+          console.log('收到滚动状态消息:', event.data);
         }
       });
 
-      // iframe 加载完成后设置额外的滚动检测
-      if (movieIframe) {
-        movieIframe.addEventListener('load', function () {
-          console.log('电影iframe加载完成，开始设置滚动检测');
-
-          // 延迟发送初始滚动检测消息
+      // 页面可见性变化时的处理
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && movieContent && movieContent.classList.contains('active')) {
+          // 页面重新可见时，重新检查
           setTimeout(() => {
-            handleParentScroll();
-          }, 2000);
+            checkIframeScroll();
+          }, 500);
+        }
+      });
 
-          // 添加定期滚动检测（作为备用方案）
-          setInterval(() => {
-            if (movieContent && movieContent.classList.contains('active')) {
-              handleParentScroll();
-            }
-          }, 5000); // 每5秒检查一次
-        });
-      }
-
-      // 在 tab 切换时触发滚动检测
-      const tabItems = document.querySelectorAll('.tab-item');
-      tabItems.forEach(item => {
-        item.addEventListener('click', function () {
-          const targetTab = this.getAttribute('data-tab');
-          if (targetTab === 'movie') {
-            // 切换到电影 tab 时，延迟触发滚动检测
-            setTimeout(() => {
-              handleParentScroll();
-            }, 1000);
-          }
-        });
+      // 窗口焦点事件
+      window.addEventListener('focus', function () {
+        if (movieContent && movieContent.classList.contains('active')) {
+          setTimeout(() => {
+            checkIframeScroll();
+          }, 500);
+        }
       });
     });
   </script>
