@@ -49,14 +49,8 @@
           </div>
           <button id="connect-btn" class="btn btn-small">连接</button>
           <button id="wake-screen-btn" class="btn btn-small" disabled>
-            <i class="fas fa-tv"></i> 唤醒
+            <i class="fas fa-tv"></i> 发送空格键
           </button>
-        </div>
-        <div id="wake-countdown-container" class="hidden">
-          <span>屏幕唤醒: <span id="wake-countdown">0</span> 剩余</span>
-          <div class="progress-bar-container">
-            <div id="wake-progress-bar"></div>
-          </div>
         </div>
       </div>
 
@@ -87,11 +81,11 @@
         </div>
       </div>
 
-      <!-- 统一的控制区域 -->
-      <div class="unified-controls-card">
-        <div class="unified-controls-container">
-          <!-- 左侧导航控制 -->
-          <div class="nav-section">
+      <!-- 导航和视频控制卡片 - 并排布局 -->
+      <div class="card controls-card">
+        <div class="controls-container">
+          <!-- 导航控制区 - 左侧 -->
+          <div class="nav-controls-side">
             <div class="directional-pad">
               <button id="arrow-up-btn" class="directional-button button-up" disabled aria-label="上">
                 <i class="fas fa-chevron-up"></i>
@@ -111,20 +105,24 @@
             </div>
           </div>
 
-          <!-- 右侧媒体控制 -->
-          <div class="media-section">
-            <button id="play-pause-btn" class="media-button" disabled aria-label="播放/暂停">
-              <i class="fas fa-play"></i>
-            </button>
-            <button id="space-btn" class="media-button" disabled aria-label="空格键">
-              <svg width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="22" height="12" rx="3" stroke="white" stroke-width="2" />
-              </svg>
-            </button>
+          <!-- 视频控制区 - 右侧 -->
+          <div class="video-controls-side">
+            <div class="media-controls-container">
+              <!-- 播放/暂停按钮 -->
+              <button id="play-pause-btn" class="media-button" disabled aria-label="播放/暂停">
+                <i class="fas fa-play"></i>
+              </button>
+              <!-- 空格按钮 -->
+              <button id="space-btn" class="media-button" disabled aria-label="空格键">
+                <svg width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="22" height="12" rx="3" stroke="white" stroke-width="2" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- 桌面切换按钮 -->
+        <!-- 桌面切换按钮 - 整合到控制区域 -->
         <div class="desktop-switch-integrated">
           <div class="btn-group">
             <button id="desktop-left-btn" class="btn btn-warning" disabled>
@@ -164,123 +162,6 @@
     // 自动检测当前网页协议，决定WebSocket连接方式
     window.isHttps = window.location.protocol === 'https:';
     console.log("当前使用" + (window.isHttps ? "HTTPS" : "HTTP") + "协议");
-
-    // 简化的 iframe 滚动支持
-    document.addEventListener('DOMContentLoaded', function () {
-      const movieIframe = document.getElementById('movie-iframe');
-      const movieContent = document.getElementById('movie-content');
-
-      let iframeScrollChecker = null;
-      let lastScrollCheck = 0;
-
-      // 检查 iframe 是否需要触发滚动加载
-      function checkIframeScroll() {
-        if (!movieContent || !movieContent.classList.contains('active') || !movieIframe) {
-          return;
-        }
-
-        try {
-          // 向 iframe 发送滚动检查消息
-          movieIframe.contentWindow.postMessage({
-            type: 'FORCE_SCROLL_CHECK',
-            timestamp: Date.now()
-          }, '*');
-        } catch (e) {
-          console.log('无法向iframe发送消息:', e);
-        }
-      }
-
-      // 监听 Tab 切换
-      const tabItems = document.querySelectorAll('.tab-item');
-      tabItems.forEach(item => {
-        item.addEventListener('click', function () {
-          const targetTab = this.getAttribute('data-tab');
-
-          if (targetTab === 'movie') {
-            console.log('切换到电影 tab，启动滚动检查');
-
-            // 清除之前的定时器
-            if (iframeScrollChecker) {
-              clearInterval(iframeScrollChecker);
-            }
-
-            // 延迟启动检查，确保 iframe 完全加载
-            setTimeout(() => {
-              checkIframeScroll();
-
-              // 启动定期检查（更频繁）
-              iframeScrollChecker = setInterval(() => {
-                checkIframeScroll();
-              }, 2000); // 每2秒检查一次
-            }, 1000);
-
-          } else {
-            // 切换到其他 tab 时停止检查
-            if (iframeScrollChecker) {
-              clearInterval(iframeScrollChecker);
-              iframeScrollChecker = null;
-            }
-          }
-        });
-      });
-
-      // iframe 加载完成后的处理
-      if (movieIframe) {
-        movieIframe.addEventListener('load', function () {
-          console.log('电影 iframe 加载完成');
-
-          // 如果当前在电影 tab，立即开始检查
-          if (movieContent && movieContent.classList.contains('active')) {
-            setTimeout(() => {
-              checkIframeScroll();
-
-              // 启动定期检查
-              if (iframeScrollChecker) {
-                clearInterval(iframeScrollChecker);
-              }
-              iframeScrollChecker = setInterval(() => {
-                checkIframeScroll();
-              }, 2000);
-            }, 2000);
-          }
-        });
-      }
-
-      // 监听来自 iframe 的消息
-      window.addEventListener('message', function (event) {
-        if (event.data && event.data.type === 'IFRAME_LOADED') {
-          console.log('收到 iframe 加载完成消息');
-
-          // iframe 内容加载完成后，开始更频繁的检查
-          setTimeout(() => {
-            checkIframeScroll();
-          }, 1000);
-        }
-
-        if (event.data && event.data.type === 'SCROLL_STATUS') {
-          console.log('收到滚动状态消息:', event.data);
-        }
-      });
-
-      // 页面可见性变化时的处理
-      document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible' && movieContent && movieContent.classList.contains('active')) {
-          // 页面重新可见时，重新检查
-          setTimeout(() => {
-            checkIframeScroll();
-          }, 500);
-        }
-      });
-
-      // 窗口焦点事件
-      window.addEventListener('focus', function () {
-        if (movieContent && movieContent.classList.contains('active')) {
-          setTimeout(() => {
-            checkIframeScroll();
-          }, 500);
-        }
-      });
-    });
   </script>
 </body>
 

@@ -132,8 +132,8 @@ document.addEventListener('DOMContentLoaded', function () {
     desktopRightBtn.disabled = !enable;
     muteBtn.disabled = !enable;
 
-    // 屏幕唤醒按钮根据当前唤醒状态决定是否禁用
-    wakeScreenBtn.disabled = !enable || isScreenAwake;
+    // 唤醒按钮不再根据唤醒状态禁用，只根据连接状态
+    wakeScreenBtn.disabled = !enable;
   }
 
   // 更新播放/暂停按钮状态
@@ -162,9 +162,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const host = window.location.hostname;
       const port = window.location.port;
       const wsUrl = port ? `${wsProtocol}${host}:${port}` : `${wsProtocol}${host}`;
-
+      
       console.log(`连接到WebSocket服务器: ${wsUrl}`);
-
+      //如果等于wss://tvcontrol.tnanko.top则替换为wss://tv.tnanko.top
+      if (wsUrl == 'wss://tvcontrol.tnanko.top') {
+        wsUrl = 'wss://tv.tnanko.top';
+      }
+      console.log(`debug：二次连接到WebSocket服务器: ${wsUrl}`);
       socket = io.connect(wsUrl, {
         reconnection: true,
         reconnectionDelay: 1000,
@@ -192,8 +196,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // 显示音量控制
         volumeContainer.classList.remove('hidden');
 
-        // 获取屏幕唤醒状态
-        socket.emit('get_wake_status');
+        // 不再需要获取唤醒状态
+        // socket.emit('get_wake_status');
       });
 
       // 断开连接事件
@@ -620,90 +624,26 @@ document.addEventListener('DOMContentLoaded', function () {
   updateConnectionIndicator('disconnected');
   enableButtons(false);
 
-  // 更新屏幕唤醒状态
+  // 更新屏幕唤醒状态 - 简化此函数，不再处理唤醒状态
   function updateWakeScreenStatus(status) {
-    isScreenAwake = status.is_active;
-
-    // 根据状态启用/禁用唤醒按钮
-    wakeScreenBtn.disabled = !isConnected || isScreenAwake;
-
-    // 更新唤醒按钮文字
-    if (isScreenAwake) {
-      wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 已唤醒';
-      // 显示倒计时
-      wakeCountdownContainer.classList.remove('hidden');
-
-      // 设置总时长和剩余时间
-      wakeTotalSeconds = status.duration_minutes * 60;
-      wakeRemainingSeconds = status.remaining_seconds;
-
-      // 更新倒计时显示
-      updateWakeCountdown();
-
-      // 如果之前有计时器，先清除
-      if (wakeCountdownTimer) {
-        clearInterval(wakeCountdownTimer);
-      }
-
-      // 启动倒计时
-      wakeCountdownTimer = setInterval(function () {
-        if (wakeRemainingSeconds > 0) {
-          wakeRemainingSeconds--;
-          updateWakeCountdown();
-        } else {
-          // 倒计时结束，重置状态
-          clearInterval(wakeCountdownTimer);
-          isScreenAwake = false;
-          wakeScreenBtn.disabled = !isConnected;
-          wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 唤醒';
-          wakeCountdownContainer.classList.add('hidden');
-        }
-      }, 1000);
-    } else {
-      // 重置唤醒按钮
-      wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 唤醒';
-      // 隐藏倒计时
-      wakeCountdownContainer.classList.add('hidden');
-
-      // 清除倒计时
-      if (wakeCountdownTimer) {
-        clearInterval(wakeCountdownTimer);
-        wakeCountdownTimer = null;
-      }
-    }
+    // 不再需要此函数的大部分功能
+    console.log("收到唤醒状态更新，但不再使用");
   }
 
-  // 更新倒计时显示
+  // 更新倒计时显示 - 不再需要
   function updateWakeCountdown() {
-    // 计算小时、分钟和秒
-    const hours = Math.floor(wakeRemainingSeconds / 3600);
-    const minutes = Math.floor((wakeRemainingSeconds % 3600) / 60);
-    const seconds = wakeRemainingSeconds % 60;
-
-    // 更新倒计时文本
-    if (hours > 0) {
-      wakeCountdown.textContent = `${hours}小时${minutes < 10 ? '0' : ''}${minutes}分`;
-    } else if (minutes > 0) {
-      wakeCountdown.textContent = `${minutes}分${seconds < 10 ? '0' : ''}${seconds}秒`;
-    } else {
-      wakeCountdown.textContent = `${seconds}秒`;
-    }
-
-    // 更新进度条
-    const percentage = (wakeRemainingSeconds / wakeTotalSeconds) * 100;
-    wakeProgressBar.style.width = `${percentage}%`;
+    // 此函数不再需要
+    console.log("倒计时函数不再使用");
   }
 
-  // 屏幕唤醒按钮
+  // 屏幕唤醒按钮 - 修改为发送空格键
   wakeScreenBtn.addEventListener('click', function () {
-    if (socket && socket.connected && !isScreenAwake) {
-      socket.emit('wake_screen', { duration_minutes: 120 });
-      statusText.textContent = '正在唤醒屏幕...';
-      wakeScreenBtn.innerHTML = '<i class="fas fa-tv"></i> 已唤醒';
-    } else if (isScreenAwake) {
-      statusText.textContent = '屏幕已经处于唤醒状态';
+    if (socket && socket.connected) {
+      // 发送空格键到ESP32
+      socket.emit('send_esp32_key', { key_code: "SPACE" });
+      statusText.textContent = '已发送空格键到ESP32';
     } else {
-      statusText.textContent = 'WebSocket未连接，无法唤醒屏幕';
+      statusText.textContent = 'WebSocket未连接，无法发送空格键';
     }
   });
 

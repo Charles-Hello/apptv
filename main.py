@@ -4,12 +4,21 @@ import subprocess
 import time
 import threading
 import datetime
+import asyncio
+import websockets
 from 测试.focus_app import focus_app
 from cafe import sleep_mac, set_wake_time, setup_passwordless_sudo
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=60, ping_interval=25)
+
+# ESP32设备配置
+ESP32_CONFIG = {
+    "ip": "192.168.1.115",  # ESP32的IP地址，请根据实际情况修改
+    "port": 80,             # ESP32的WebSocket端口
+    "ws_path": "/ws"        # WebSocket路径
+}
 
 # 屏幕唤醒状态管理
 screen_wake_status = {
@@ -22,6 +31,30 @@ screen_wake_status = {
 first_user_wake_triggered = False
 first_user_wake_date = None
 
+# ESP32 WebSocket客户端功能
+async def send_key_to_esp32(key_code):
+    """发送按键码到ESP32设备"""
+    websocket_url = f"ws://{ESP32_CONFIG['ip']}:{ESP32_CONFIG['port']}{ESP32_CONFIG['ws_path']}"
+    
+    try:
+        print(f"正在连接到ESP32: {websocket_url}")
+        async with websockets.connect(websocket_url) as websocket:
+            await websocket.send(key_code)
+            print(f"已发送按键: {key_code}")
+            return True
+    except Exception as e:
+        print(f"发送按键到ESP32失败: {e}")
+        return False
+
+def send_key_to_esp32_sync(key_code):
+    """同步版本的ESP32按键发送函数"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        result = loop.run_until_complete(send_key_to_esp32(key_code))
+        return result
+    finally:
+        loop.close()
 
 # 控制音量的函数
 def change_volume(direction):
@@ -488,6 +521,24 @@ def handle_quick_sleep_wake():
             "success": False,
             "message": str(e)
         })
+
+@socketio.on('send_esp32_key')
+def handle_send_esp32_key(data):
+    """处理发送按键到ESP32的请求"""
+    key_code = data.get('key_code', 'SPACE')
+    
+    # 启动线程发送按键，避免阻塞主线程
+    def send_key_thread():
+        success = send_key_to_esp32_sync(key_code)
+        # 发送结果通知给客户端
+        socketio.emit('esp32_key_response', {
+            'success': success,
+            'key_code': key_code,
+            'message': '发送成功' if success else '发送失败'
+        })
+    
+    threading.Thread(target=send_key_thread).start()
+    return {'status': 'sending'}
 
 # 主页路由
 @app.route('/')
