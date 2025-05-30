@@ -526,7 +526,7 @@ def handle_quick_sleep_wake():
 def handle_send_esp32_key(data):
     """处理发送按键到ESP32的请求"""
     key_code = data.get('key_code', 'FLAG')
-    # 启动线程发送按···键，避免阻塞主线程
+    # 启动线程发送按键，避免阻塞主线程
     def send_key_thread():
         success = send_key_to_esp32_sync(key_code)
         # 发送结果通知给客户端
@@ -566,11 +566,30 @@ def send_url_http():
         "url": url,
         "timestamp": int(__import__('time').time())
     })
-    
     return jsonify({
         "success": True,
         "url": url,
         "message": "URL已发送到浏览器"
+    })
+
+# 添加HTTP路由发送ESP32按键
+@app.route('/send-esp32-key', methods=['GET'])
+def send_esp32_key_http():
+    """通过HTTP请求发送按键到ESP32"""
+    key_code = request.args.get('key_code')
+    if not key_code:
+        return jsonify({
+            "success": False,
+            "error": "key_code参数不能为空"
+        }), 400
+    
+    # 发送按键到ESP32
+    success = send_key_to_esp32_sync(key_code)
+    
+    return jsonify({
+        "success": success,
+        "key_code": key_code,
+        "message": "按键已发送到ESP32" if success else "发送按键失败"
     })
 
 if __name__ == '__main__':

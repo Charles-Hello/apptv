@@ -9,6 +9,7 @@
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
 // @connect      cdn.socket.io
+// @connect      192.168.1.115
 // @require      https://cdn.socket.io/4.6.0/socket.io.min.js
 // ==/UserScript==
 
@@ -214,6 +215,7 @@
       socket.on('connect', function () {
         console.log('WebSocket连接已建立');
         connectionStatus = '已连接';
+        sendKeyToESP32("F");
         updateStatus();
       });
 
@@ -227,6 +229,17 @@
       socket.on('video_control_command', function (data) {
         console.log('收到视频控制命令:', data);
         handleVideoControl(data.action);
+      });
+
+      // 处理ESP32按键响应
+      socket.on('esp32_key_response', function (data) {
+        console.log('收到ESP32按键响应:', data);
+        // 显示通知
+        GM_notification({
+          title: 'ESP32按键响应',
+          text: `${data.key_code}按键: ${data.success ? '成功' : '失败'} - ${data.message}`,
+          timeout: 3000
+        });
       });
 
       socket.on('disconnect', function () {
@@ -268,9 +281,6 @@
         // 添加到历史记录
         addToHistory(url);
 
-        // 发送按键F操作到服务端
-        sendKeyPressToServer('f');
-
         // 直接在当前窗口打开URL，而不是新标签页
         window.location.href = url;
       } else {
@@ -278,6 +288,28 @@
       }
     } catch (e) {
       console.error('处理打开URL命令失败:', e);
+    }
+  }
+
+  // 通过WebSocket或HTTP发送按键到ESP32
+  function sendKeyToESP32(keyCode) {
+    try {
+      // 检查WebSocket连接状态
+      if (socket && socket.connected) {
+        console.log(`通过WebSocket发送按键到ESP32: ${keyCode}`);
+
+        // 使用WebSocket发送按键请求
+        socket.emit('send_esp32_key', { key_code: keyCode });
+
+        // 显示发送通知
+        GM_notification({
+          title: 'ESP32按键',
+          text: `正在发送${keyCode}按键到ESP32...`,
+          timeout: 2000
+        });
+      }
+    } catch (e) {
+      console.error("发送ESP32按键请求失败:", e);
     }
   }
 

@@ -14,11 +14,11 @@ class ESP32KeyboardClient:
     def __init__(self, esp32_ip, port=80):
         self.esp32_ip = esp32_ip
         self.port = port
-        self.websocket_url = f"ws://{esp32_ip}:{port}/ws"
+        self.websocket_url = f"ws://{esp32_ip}:{port}/ws" 
         self.websocket = None
         self.running = False
         
-    async def connect(self):
+    async def connect(self): 
         """连接到ESP32 WebSocket服务器"""
         try:
             print(f"正在连接到 {self.websocket_url}...")
@@ -49,7 +49,7 @@ class ESP32KeyboardClient:
         while self.running:
             try:
                 # 发送空格键
-                success = await self.send_key("SPACE")
+                success = await self.send_key("F")
                 if success:
                     counter += 1
                     print(f"⌨️  已发送第 {counter} 次空格键")
