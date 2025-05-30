@@ -13,6 +13,10 @@
 // @require      https://cdn.socket.io/4.6.0/socket.io.min.js
 // ==/UserScript==
 
+// todo 
+// sendKeyToESP32("F");
+
+
 (function () {
   'use strict';
 
@@ -215,7 +219,6 @@
       socket.on('connect', function () {
         console.log('WebSocket连接已建立');
         connectionStatus = '已连接';
-        sendKeyToESP32("F");
         updateStatus();
       });
 
