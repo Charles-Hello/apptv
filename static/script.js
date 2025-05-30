@@ -636,14 +636,14 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log("倒计时函数不再使用");
   }
 
-  // 屏幕唤醒按钮 - 修改为发送空格键
+  // 屏幕唤醒按钮 - 修改为发送~
   wakeScreenBtn.addEventListener('click', function () {
     if (socket && socket.connected) {
-      // 发送空格键到ESP32
-      socket.emit('send_esp32_key', { key_code: "SPACE" });
-      statusText.textContent = '已发送空格键到ESP32';
+      // 发送～到ESP32
+      socket.emit('send_esp32_key', { key_code: "FLAG" });
+      statusText.textContent = '已发送~到ESP32';
     } else {
-      statusText.textContent = 'WebSocket未连接，无法发送空格键';
+      statusText.textContent = 'WebSocket未连接，无法发送~';
     }
   });
 

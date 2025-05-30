@@ -525,9 +525,8 @@ def handle_quick_sleep_wake():
 @socketio.on('send_esp32_key')
 def handle_send_esp32_key(data):
     """处理发送按键到ESP32的请求"""
-    key_code = data.get('key_code', 'SPACE')
-    
-    # 启动线程发送按键，避免阻塞主线程
+    key_code = data.get('key_code', 'FLAG')
+    # 启动线程发送按···键，避免阻塞主线程
     def send_key_thread():
         success = send_key_to_esp32_sync(key_code)
         # 发送结果通知给客户端

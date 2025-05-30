@@ -7,7 +7,7 @@
 开发理由是：闲置的 MacBook M1 古董吃亏，无奈拿来当电视盒子，壕无人性。既想看电影又想看电视的需求。以及无需红外线直接采用 WebSocket 来操控电脑控制屏幕切换，视频播放，音量调节。唤醒 macOS 采用咖啡来操作，默认两个小时。未来计划是对电影网站发送到 WebSocket 直接播放，目前采用方案是手动发送电影播放的网页。
 
 b站演示地址：
-https://www.bilibili.com/video/BV1RSJBzwEGm/
+https://www.bilibili.com/video/BV1DoJBz4ErA/
 
 电影地址：
 movie.tnanko.top
