@@ -72,9 +72,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 屏幕唤醒相关
   const wakeScreenBtn = document.getElementById('wake-screen-btn');
-  const wakeCountdownContainer = document.getElementById('wake-countdown-container');
-  const wakeCountdown = document.getElementById('wake-countdown');
-  const wakeProgressBar = document.getElementById('wake-progress-bar');
 
   // 保存当前音量
   let currentVolume = 0;
@@ -87,12 +84,6 @@ document.addEventListener('DOMContentLoaded', function () {
   let isConnected = false;
   let isMuted = false; // 添加静音状态标志
 
-  // 屏幕唤醒状态
-  let isScreenAwake = false;
-  let wakeEndTime = null;
-  let wakeCountdownTimer = null;
-  let wakeTotalSeconds = 0;
-  let wakeRemainingSeconds = 0;
 
   // 更新连接状态指示器
   function updateConnectionIndicator(status) {
@@ -290,10 +281,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
 
-      // 屏幕唤醒状态更新
-      socket.on('wake_status_update', function (data) {
-        updateWakeScreenStatus(data);
-      });
+  
 
       // 屏幕唤醒响应
       socket.on('wake_screen_response', function (data) {
@@ -304,7 +292,6 @@ document.addEventListener('DOMContentLoaded', function () {
           } else {
             statusText.textContent = data.message;
           }
-          updateWakeScreenStatus(data.wake_status);
         } else {
           statusText.textContent = `屏幕唤醒失败: ${data.error || '未知错误'}`;
         }
@@ -624,17 +611,6 @@ document.addEventListener('DOMContentLoaded', function () {
   updateConnectionIndicator('disconnected');
   enableButtons(false);
 
-  // 更新屏幕唤醒状态 - 简化此函数，不再处理唤醒状态
-  function updateWakeScreenStatus(status) {
-    // 不再需要此函数的大部分功能
-    console.log("收到唤醒状态更新，但不再使用");
-  }
-
-  // 更新倒计时显示 - 不再需要
-  function updateWakeCountdown() {
-    // 此函数不再需要
-    console.log("倒计时函数不再使用");
-  }
 
   // 屏幕唤醒按钮 - 修改为发送~
   wakeScreenBtn.addEventListener('click', function () {

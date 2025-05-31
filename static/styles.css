@@ -91,32 +91,6 @@ body {
     background: var(--apple-dark-primary);
 }
 
-#wake-countdown-container {
-    font-size: 12px;
-    color: var(--apple-dark-text-secondary);
-    margin-top: 8px;
-    text-align: center;
-}
-
-.progress-bar-container {
-    height: 4px;
-    background-color: var(--apple-dark-gray);
-    border-radius: 2px;
-    margin-top: 4px;
-    overflow: hidden;
-    width: 100%;
-    max-width: 200px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-#wake-progress-bar {
-    height: 100%;
-    width: 0%;
-    background-color: var(--apple-dark-primary);
-    transition: width 1s linear;
-}
-
 /* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .compact-header {
@@ -676,7 +650,7 @@ footer {
     width: auto;
 }
 
-/* 闊抽噺鎺у埗鍖烘牱寮?*/
+/* 闊抽噺鎺у埗鎸夐挳鐨勫榻愪綅缃?*/
 .volume-section {
     margin-top: 24px;
     border-top: 1px solid var(--apple-border);
@@ -735,39 +709,6 @@ footer {
         margin-top: 12px;
         padding-top: 8px;
     }
-}
-
-.wake-screen-section {
-    margin-top: 16px;
-    text-align: center;
-    border-top: 1px solid var(--apple-border);
-    padding-top: 12px;
-}
-
-.progress-bar-container {
-    height: 4px;
-    background-color: var(--apple-dark-gray);
-    border-radius: 2px;
-    margin-top: 4px;
-    margin-bottom: 16px;
-    overflow: hidden;
-    width: 100%;
-    max-width: 200px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-#wake-progress-bar {
-    height: 100%;
-    width: 100%;
-    background-color: var(--apple-dark-primary);
-    transition: width 1s linear;
-}
-
-#wake-countdown-container {
-    font-size: 12px;
-    color: var(--apple-dark-text-secondary);
-    margin-top: 8px;
 }
 
 /* 闊抽噺鎺у埗鍜屽鑸帶鍒剁殑骞舵帓甯冨眬 */
