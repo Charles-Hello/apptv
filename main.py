@@ -692,5 +692,39 @@ def get_hdr_status_http():
         "is_on": hdr_status["is_on"]
     })
 
+# 添加HTTP路由处理快速睡眠唤醒
+@app.route('/quick-sleep-wake', methods=['GET'])
+def quick_sleep_wake_http():
+    """通过HTTP请求处理快速睡眠唤醒"""
+    try:
+      
+        # 设置0.1分钟后唤醒
+        set_wake_time(0.1)
+        return jsonify({
+            "success": True,
+            "message": "系统将短暂睡眠并自动唤醒"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+@app.route('/quick-sleep', methods=['GET'])
+def quick_sleep_http():
+    """通过HTTP请求处理快速睡眠唤醒"""
+    try:
+      
+        sleep_mac()
+        return jsonify({
+            "success": True,
+            "message": "系统将短暂睡眠并自动唤醒"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5003, debug=True)
