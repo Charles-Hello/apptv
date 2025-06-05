@@ -31,6 +31,11 @@ screen_wake_status = {
 first_user_wake_triggered = False
 first_user_wake_date = None
 
+# HDR状态跟踪
+hdr_status = {
+    "is_on": False
+}
+
 # ESP32 WebSocket客户端功能
 async def send_key_to_esp32(key_code):
     """发送按键码到ESP32设备"""
@@ -273,7 +278,8 @@ def handle_connect():
     
     emit('status_update', {
         'status': '已连接',
-        'current_volume': current_volume
+        'current_volume': current_volume,
+        'hdr_status': hdr_status["is_on"]  # 添加HDR状态
     })
     
     # 发送当前屏幕唤醒状态
@@ -537,6 +543,41 @@ def handle_send_esp32_key(data):
     threading.Thread(target=send_key_thread).start()
     return {'status': 'sending'}
 
+# 添加新的HDR切换处理函数
+@socketio.on('toggle_hdr')
+def handle_toggle_hdr():
+    """处理HDR切换请求"""
+    global hdr_status
+    
+    # 切换HDR状态
+    hdr_status["is_on"] = not hdr_status["is_on"]
+    
+    # 执行HDR切换命令
+    command = f"/Users/ken/Desktop/apptv/hdr_toggle {'on' if hdr_status['is_on'] else 'off'}"
+    try:
+        subprocess.run(command, shell=True, check=True)
+        success = True
+        message = f"HDR已{'开启' if hdr_status['is_on'] else '关闭'}"
+    except Exception as e:
+        success = False
+        message = f"HDR切换失败: {str(e)}"
+        # 如果执行失败，恢复状态
+        hdr_status["is_on"] = not hdr_status["is_on"]
+    
+    # 向请求客户端发送响应
+    emit('hdr_toggle_response', {
+        "success": success,
+        "is_on": hdr_status["is_on"],
+        "message": message
+    })
+    
+    # 向所有客户端广播HDR状态
+    socketio.emit('hdr_status_update', {
+        "is_on": hdr_status["is_on"]
+    })
+    
+    print(f"HDR已切换为: {'开启' if hdr_status['is_on'] else '关闭'}")
+
 # 主页路由
 @app.route('/')
 def index():
@@ -590,40 +631,66 @@ def send_esp32_key_http():
         "message": "按键已发送到ESP32" if success else "发送按键失败"
     })
 
-# 添加HTTP路由处理快速睡眠唤醒
-@app.route('/quick-sleep-wake', methods=['GET'])
-def quick_sleep_wake_http():
-    """通过HTTP请求处理快速睡眠唤醒"""
-    try:
-      
-        # 设置0.1分钟后唤醒
-        set_wake_time(0.1)
+# 添加HTTP接口控制HDR
+@app.route('/toggle-hdr', methods=['GET'])
+def toggle_hdr_http():
+    """通过HTTP请求控制HDR开关"""
+    global hdr_status
+    
+    # 获取参数，如果没有提供，则切换状态
+    action = request.args.get('action')
+    
+    if action == 'on':
+        # 直接设置为开启
+        target_state = True
+    elif action == 'off':
+        # 直接设置为关闭
+        target_state = False
+    else:
+        # 如果没有指定action或action不是on/off，则切换当前状态
+        target_state = not hdr_status["is_on"]
+    
+    # 如果目标状态与当前状态相同，不需要执行命令
+    if target_state == hdr_status["is_on"]:
         return jsonify({
             "success": True,
-            "message": "系统将短暂睡眠并自动唤醒"
+            "is_on": hdr_status["is_on"],
+            "message": f"HDR已经是{'开启' if hdr_status['is_on'] else '关闭'}状态"
         })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
-@app.route('/quick-sleep', methods=['GET'])
-def quick_sleep_http():
-    """通过HTTP请求处理快速睡眠唤醒"""
+    
+    # 设置HDR状态
+    hdr_status["is_on"] = target_state
+    
+    # 执行HDR切换命令
+    command = f"/Users/ken/Desktop/apptv/hdr_toggle {'on' if hdr_status['is_on'] else 'off'}"
     try:
-      
-        sleep_mac()
-        return jsonify({
-            "success": True,
-            "message": "系统将短暂睡眠并自动唤醒"
+        subprocess.run(command, shell=True, check=True)
+        success = True
+        message = f"HDR已{'开启' if hdr_status['is_on'] else '关闭'}"
+        
+        # 向所有客户端广播HDR状态
+        socketio.emit('hdr_status_update', {
+            "is_on": hdr_status["is_on"]
         })
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+        success = False
+        message = f"HDR切换失败: {str(e)}"
+        # 如果执行失败，恢复状态
+        hdr_status["is_on"] = not hdr_status["is_on"]
+    
+    return jsonify({
+        "success": success,
+        "is_on": hdr_status["is_on"],
+        "message": message
+    })
 
+# 获取HDR状态的HTTP接口
+@app.route('/hdr-status', methods=['GET'])
+def get_hdr_status_http():
+    """获取当前HDR状态"""
+    return jsonify({
+        "is_on": hdr_status["is_on"]
+    })
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5003, debug=True)

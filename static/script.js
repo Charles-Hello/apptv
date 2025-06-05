@@ -73,9 +73,15 @@ document.addEventListener('DOMContentLoaded', function () {
   // 屏幕唤醒相关
   const wakeScreenBtn = document.getElementById('wake-screen-btn');
 
+  // HDR切换按钮
+  const toggleHdrBtn = document.getElementById('toggle-hdr-btn');
+
   // 保存当前音量
   let currentVolume = 0;
   let lastNonZeroVolume = 50; // 存储上一次非零音量值
+
+  // HDR状态
+  let isHdrOn = false;
 
   // 初始化状态
   let isPlaying = false;
@@ -122,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function () {
     desktopLeftBtn.disabled = !enable;
     desktopRightBtn.disabled = !enable;
     muteBtn.disabled = !enable;
+    toggleHdrBtn.disabled = !enable; // 添加HDR按钮
 
     // 唤醒按钮不再根据唤醒状态禁用，只根据连接状态
     wakeScreenBtn.disabled = !enable;
@@ -135,6 +142,17 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
       playPauseBtn.setAttribute('aria-label', '播放');
+    }
+  }
+
+  // 更新HDR按钮状态
+  function updateHdrButton() {
+    if (isHdrOn) {
+      toggleHdrBtn.innerHTML = '<i class="fas fa-adjust"></i> HDR: 开';
+      toggleHdrBtn.classList.add('active');
+    } else {
+      toggleHdrBtn.innerHTML = '<i class="fas fa-adjust"></i> HDR: 关';
+      toggleHdrBtn.classList.remove('active');
     }
   }
 
@@ -153,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const host = window.location.hostname;
       const port = window.location.port;
       const wsUrl = port ? `${wsProtocol}${host}:${port}` : `${wsProtocol}${host}`;
-      
+
       console.log(`连接到WebSocket服务器: ${wsUrl}`);
       //如果等于wss://tvcontrol.tnanko.top则替换为wss://tv.tnanko.top
       if (wsUrl == 'wss://tvcontrol.tnanko.top') {
@@ -228,6 +246,12 @@ document.addEventListener('DOMContentLoaded', function () {
           updatePlayPauseButton();
         }
 
+        // 更新HDR状态
+        if (data.hdr_status !== undefined) {
+          isHdrOn = data.hdr_status;
+          updateHdrButton();
+        }
+
         // 如果初始音量为0，确保lastNonZeroVolume不为0
         if (data.current_volume === 0 && lastNonZeroVolume === 0) {
           lastNonZeroVolume = 50; // 默认值
@@ -281,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
 
-  
+
 
       // 屏幕唤醒响应
       socket.on('wake_screen_response', function (data) {
@@ -294,6 +318,24 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         } else {
           statusText.textContent = `屏幕唤醒失败: ${data.error || '未知错误'}`;
+        }
+      });
+
+      // HDR状态更新
+      socket.on('hdr_status_update', function (data) {
+        isHdrOn = data.is_on;
+        updateHdrButton();
+        statusText.textContent = `HDR已${isHdrOn ? '开启' : '关闭'}`;
+      });
+
+      // HDR切换响应
+      socket.on('hdr_toggle_response', function (data) {
+        if (data.success) {
+          isHdrOn = data.is_on;
+          updateHdrButton();
+          statusText.textContent = data.message;
+        } else {
+          statusText.textContent = `HDR切换失败: ${data.message || '未知错误'}`;
         }
       });
 
@@ -620,6 +662,16 @@ document.addEventListener('DOMContentLoaded', function () {
       statusText.textContent = '已发送~到ESP32';
     } else {
       statusText.textContent = 'WebSocket未连接，无法发送~';
+    }
+  });
+
+  // HDR切换按钮
+  toggleHdrBtn.addEventListener('click', function () {
+    if (socket && socket.connected) {
+      socket.emit('toggle_hdr');
+      statusText.textContent = '正在切换HDR状态...';
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法切换HDR';
     }
   });
 
