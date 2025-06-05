@@ -25,6 +25,15 @@
   let socket;
   let connectionStatus = '未连接';
 
+  // WebSocket重连相关变量
+  let wsReconnectAttempts = 0;
+  let wsMaxReconnectAttempts = 10;
+  let wsReconnectDelay = 1000; // 初始重连延迟1秒
+  let wsMaxReconnectDelay = 30000; // 最大重连延迟30秒
+  let wsReconnectTimer = null;
+  let wsHeartbeatTimer = null;
+  let wsHeartbeatInterval = 30000; // 心跳检测间隔30秒
+
   // 检查是否在目标网站上
   const isTargetWebsite = window.location.href.includes('movie.tnanko.top');
 
@@ -39,12 +48,23 @@
 
     // 添加自动全屏功能
     setupAutoFullscreen();
+
+    // 添加页面可见性变化监听
+    document.addEventListener('visibilitychange', handleVisibilityChange);
   } else {
     console.log('不在目标网站上，仅保留基本功能');
     // 移除WebSocket相关UI元素
     const panel = document.getElementById('ws-control-panel');
     if (panel) {
       panel.style.display = 'none';
+    }
+  }
+
+  // 处理页面可见性变化
+  function handleVisibilityChange() {
+    if (!document.hidden && socket && !socket.connected) {
+      console.log('页面恢复可见，检测到WebSocket断开，尝试重连...');
+      reconnectWebSocket();
     }
   }
 
@@ -195,12 +215,105 @@
   // 连接WebSocket
   function connectWebSocket() {
     try {
+      // 重置重连尝试次数
+      wsReconnectAttempts = 0;
+
+      // 清除可能存在的定时器
+      clearReconnectTimer();
+      clearHeartbeatTimer();
+
       // 初始化Socket.IO连接
       initSocketConnection();
+
+      // 设置心跳检测
+      setupHeartbeat();
     } catch (e) {
       console.error('创建WebSocket连接失败:', e);
       connectionStatus = '连接失败';
       updateStatus();
+
+      // 尝试重连
+      scheduleReconnect();
+    }
+  }
+
+  // 重连WebSocket
+  function reconnectWebSocket() {
+    // 如果已达到最大重连次数，停止重连
+    if (wsReconnectAttempts >= wsMaxReconnectAttempts) {
+      console.log(`已达到最大重连次数(${wsMaxReconnectAttempts})，停止重连`);
+      connectionStatus = `重连失败(${wsReconnectAttempts}/${wsMaxReconnectAttempts})`;
+      updateStatus();
+      return;
+    }
+
+    // 增加重连尝试次数
+    wsReconnectAttempts++;
+
+    // 更新状态
+    connectionStatus = `正在重连(${wsReconnectAttempts}/${wsMaxReconnectAttempts})`;
+    updateStatus();
+
+    console.log(`尝试重连WebSocket(${wsReconnectAttempts}/${wsMaxReconnectAttempts})...`);
+
+    // 清除旧的Socket连接
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+
+    // 初始化新的Socket连接
+    initSocketConnection();
+  }
+
+  // 安排重连
+  function scheduleReconnect() {
+    // 清除可能存在的重连定时器
+    clearReconnectTimer();
+
+    // 计算指数退避重连延迟（最大不超过wsMaxReconnectDelay）
+    const delay = Math.min(wsReconnectDelay * Math.pow(1.5, wsReconnectAttempts), wsMaxReconnectDelay);
+
+    console.log(`将在${delay / 1000}秒后尝试重连...`);
+
+    // 设置重连定时器
+    wsReconnectTimer = setTimeout(reconnectWebSocket, delay);
+  }
+
+  // 清除重连定时器
+  function clearReconnectTimer() {
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+  }
+
+  // 设置心跳检测
+  function setupHeartbeat() {
+    // 清除可能存在的心跳定时器
+    clearHeartbeatTimer();
+
+    // 设置新的心跳定时器
+    wsHeartbeatTimer = setInterval(checkConnection, wsHeartbeatInterval);
+  }
+
+  // 清除心跳定时器
+  function clearHeartbeatTimer() {
+    if (wsHeartbeatTimer) {
+      clearInterval(wsHeartbeatTimer);
+      wsHeartbeatTimer = null;
+    }
+  }
+
+  // 检查连接状态
+  function checkConnection() {
+    if (socket && !socket.connected) {
+      console.log('心跳检测：WebSocket连接已断开，尝试重连...');
+      reconnectWebSocket();
+    } else if (socket && socket.connected) {
+      console.log('心跳检测：WebSocket连接正常');
+      // 发送心跳包
+      socket.emit('heartbeat', { timestamp: Date.now() });
     }
   }
 
@@ -208,7 +321,10 @@
   function initSocketConnection() {
     try {
       socket = io(WS_URL, {
-        reconnectionAttempts: 5,
+        reconnection: true,            // 启用Socket.IO自动重连
+        reconnectionAttempts: 0,       // 不限制Socket.IO内部重连次数，由我们自己控制
+        reconnectionDelay: 1000,       // 初始重连延迟
+        reconnectionDelayMax: 5000,    // 最大重连延迟
         timeout: 10000,
         // 强制使用长轮询而不是WebSocket，绕过Safari的安全限制
         transports: ['polling'],
@@ -220,6 +336,24 @@
         console.log('WebSocket连接已建立');
         connectionStatus = '已连接';
         updateStatus();
+
+        // 连接成功，重置重连尝试次数
+        wsReconnectAttempts = 0;
+
+        // 清除可能存在的重连定时器
+        clearReconnectTimer();
+
+        // 重新设置心跳检测
+        setupHeartbeat();
+
+        // 显示连接成功通知
+        if (wsReconnectAttempts > 0) {
+          GM_notification({
+            title: 'WebSocket重连成功',
+            text: '与服务器的连接已恢复',
+            timeout: 3000
+          });
+        }
       });
 
       // 处理来自服务器的命令
@@ -245,16 +379,43 @@
         });
       });
 
+      // 处理心跳响应
+      socket.on('heartbeat_response', function (data) {
+        console.log('收到心跳响应:', data);
+      });
+
       socket.on('disconnect', function () {
         console.log('WebSocket连接已断开');
         connectionStatus = '连接已断开';
         updateStatus();
+
+        // 安排重连
+        scheduleReconnect();
       });
 
       socket.on('error', function (error) {
         console.error('Socket.IO错误:', error);
         connectionStatus = '连接错误';
         updateStatus();
+
+        // 如果发生错误且未连接，尝试重连
+        if (!socket.connected) {
+          scheduleReconnect();
+        }
+      });
+
+      socket.on('reconnect_attempt', function (attemptNumber) {
+        console.log(`Socket.IO内部重连尝试 #${attemptNumber}`);
+      });
+
+      socket.on('reconnect_error', function (error) {
+        console.error('Socket.IO重连错误:', error);
+      });
+
+      socket.on('reconnect_failed', function () {
+        console.error('Socket.IO内部重连失败');
+        // 交由我们自己的重连机制处理
+        scheduleReconnect();
       });
 
       // 获取状态
@@ -263,6 +424,9 @@
       console.error('初始化Socket.IO连接失败:', e);
       connectionStatus = '连接失败';
       updateStatus();
+
+      // 安排重连
+      scheduleReconnect();
     }
   }
 
@@ -375,7 +539,12 @@
       case '已连接': return 'status-connected';
       case '连接错误':
       case '连接失败': return 'status-error';
-      default: return 'status-disconnected';
+      default:
+        // 检查是否包含"重连"字样
+        if (status.includes('重连') || status.includes('正在重连')) {
+          return 'status-reconnecting';
+        }
+        return 'status-disconnected';
     }
   }
 
@@ -400,205 +569,227 @@
     }
 
     panel.innerHTML = `
-            <div class="ws-header">远程链接接收器 <span class="ws-close-btn">&times;</span></div>
-            <div class="ws-body">
-                <div class="ws-status-row">
-                    <span>连接状态:</span> 
-                    <span id="ws-connection-status" class="status-disconnected">未连接</span>
-                </div>
-                <div class="ws-info">
-                    <p>服务器地址: ${WS_URL}</p>
-                </div>
-                <div class="ws-controls">
-                    <button id="btn-play">播放</button>
-                    <button id="btn-pause">暂停</button>
-                    <button id="btn-key-f">按键F</button>
-                </div>
-                <div class="url-history">
-                    <h4>历史记录</h4>
-                    <ul id="history-list"></ul>
-                </div>
-            </div>
-        `;
+              <div class="ws-header">远程链接接收器 <span class="ws-close-btn">&times;</span></div>
+              <div class="ws-body">
+                  <div class="ws-status-row">
+                      <span>连接状态:</span> 
+                      <span id="ws-connection-status" class="status-disconnected">未连接</span>
+                      <button id="btn-reconnect" title="重新连接">🔄</button>
+                  </div>
+                  <div class="ws-info">
+                      <p>服务器地址: ${WS_URL}</p>
+                  </div>
+                  <div class="ws-controls">
+                      <button id="btn-play">播放</button>
+                      <button id="btn-pause">暂停</button>
+                      <button id="btn-key-f">按键F</button>
+                  </div>
+                  <div class="url-history">
+                      <h4>历史记录</h4>
+                      <ul id="history-list"></ul>
+                  </div>
+              </div>
+          `;
 
     // 添加样式
     const style = document.createElement('style');
     style.textContent = `
-            #ws-control-panel {
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                width: 280px;
-                background: #ffffff;
-                border: 1px solid #bbbbbb;
-                border-radius: 8px;
-                box-shadow: 0 0 10px rgba(0,0,0,0.3);
-                z-index: 9999;
-                font-family: Arial, sans-serif;
-                transition: all 0.3s ease;
-                font-size: 14px;
-                color: #222222;
-            }
-            .ws-header {
-                padding: 10px 12px;
-                background: #3a75c4;
-                color: white;
-                font-weight: bold;
-                border-radius: 8px 8px 0 0;
-                display: flex;
-                justify-content: space-between;
-                font-size: 15px;
-            }
-            .ws-close-btn {
-                cursor: pointer;
-                font-size: 18px;
-                color: white;
-            }
-            .ws-body {
-                padding: 12px;
-                background: #ffffff;
-                color: #222222;
-                border-radius: 0 0 8px 8px;
-            }
-            .ws-status-row {
-                margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-                color: #222222;
-                font-weight: 500;
-            }
-            .ws-status-row span:first-child {
-                margin-right: 8px;
-                font-weight: bold;
-                width: 70px;
-                color: #222222;
-            }
-            .status-connected {
-                color: #006600;
-                font-weight: bold;
-            }
-            .status-disconnected {
-                color: #444444;
-                font-weight: bold;
-            }
-            .status-error {
-                color: #cc0000;
-                font-weight: bold;
-            }
-            .ws-info {
-                margin: 10px 0;
-                font-size: 13px;
-                background: #f0f0f0;
-                padding: 10px;
-                border-radius: 5px;
-                color: #222222;
-                border: 1px solid #dddddd;
-            }
-            .ws-info p {
-                margin: 4px 0;
-                color: #222222;
-                font-weight: 500;
-            }
-            .ws-controls {
-                display: flex;
-                justify-content: space-between;
-                margin: 10px 0;
-                flex-wrap: wrap;
-                gap: 5px;
-            }
-            .ws-controls button {
-                flex: 1;
-                min-width: 45%;
-                margin: 0 0 5px 0;
-                padding: 8px 0;
-                border: none;
-                border-radius: 4px;
-                background: #3a75c4;
-                color: white;
-                font-weight: bold;
-                cursor: pointer;
-            }
-            .ws-controls button:hover {
-                background: #2a5594;
-            }
-            .url-history {
-                margin-top: 12px;
-                background: #f0f0f0;
-                padding: 10px;
-                border-radius: 5px;
-                max-height: 150px;
-                overflow-y: auto;
-                border: 1px solid #dddddd;
-            }
-            .url-history h4 {
-                margin: 0 0 10px 0;
-                font-size: 14px;
-                color: #222222;
-                font-weight: bold;
-            }
-            #history-list {
-                margin: 0;
-                padding: 0;
-                list-style: none;
-                color: #222222;
-            }
-            #history-list li {
-                padding: 6px 0;
-                border-bottom: 1px solid #dddddd;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-size: 13px;
-                color: #222222;
-            }
-            #history-list li a {
-                flex: 1;
-                color: #0055aa;
-                text-decoration: none;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                margin-right: 8px;
-                font-weight: 500;
-            }
-            #history-list li a:hover {
-                text-decoration: underline;
-                color: #003377;
-            }
-            #history-list li button {
-                background: #dddddd;
-                border: none;
-                border-radius: 4px;
-                padding: 3px 8px;
-                font-size: 12px;
-                cursor: pointer;
-                color: #222222;
-                font-weight: 500;
-            }
-            #history-list li button:hover {
-                background: #cccccc;
-            }
-            .ws-minimized {
-                width: 45px;
-                height: 45px;
-                overflow: hidden;
-                border-radius: 50%;
-            }
-            .ws-minimized .ws-body {
-                display: none;
-            }
-            .ws-minimized .ws-header {
-                border-radius: 50%;
-                padding: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 45px;
-            }
-            .ws-minimized .ws-close-btn {
-                display: none;
-            }
-        `;
+              #ws-control-panel {
+                  position: fixed;
+                  bottom: 20px;
+                  right: 20px;
+                  width: 280px;
+                  background: #ffffff;
+                  border: 1px solid #bbbbbb;
+                  border-radius: 8px;
+                  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+                  z-index: 9999;
+                  font-family: Arial, sans-serif;
+                  transition: all 0.3s ease;
+                  font-size: 14px;
+                  color: #222222;
+              }
+              .ws-header {
+                  padding: 10px 12px;
+                  background: #3a75c4;
+                  color: white;
+                  font-weight: bold;
+                  border-radius: 8px 8px 0 0;
+                  display: flex;
+                  justify-content: space-between;
+                  font-size: 15px;
+              }
+              .ws-close-btn {
+                  cursor: pointer;
+                  font-size: 18px;
+                  color: white;
+              }
+              .ws-body {
+                  padding: 12px;
+                  background: #ffffff;
+                  color: #222222;
+                  border-radius: 0 0 8px 8px;
+              }
+              .ws-status-row {
+                  margin-bottom: 10px;
+                  display: flex;
+                  align-items: center;
+                  color: #222222;
+                  font-weight: 500;
+              }
+              .ws-status-row span:first-child {
+                  margin-right: 8px;
+                  font-weight: bold;
+                  width: 70px;
+                  color: #222222;
+              }
+              #btn-reconnect {
+                  margin-left: 8px;
+                  background: #f0f0f0;
+                  border: 1px solid #dddddd;
+                  border-radius: 50%;
+                  width: 24px;
+                  height: 24px;
+                  cursor: pointer;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  font-size: 14px;
+                  padding: 0;
+              }
+              #btn-reconnect:hover {
+                  background: #e0e0e0;
+              }
+              .status-connected {
+                  color: #006600;
+                  font-weight: bold;
+              }
+              .status-disconnected {
+                  color: #444444;
+                  font-weight: bold;
+              }
+              .status-error {
+                  color: #cc0000;
+                  font-weight: bold;
+              }
+              .status-reconnecting {
+                  color: #ff6600;
+                  font-weight: bold;
+              }
+              .ws-info {
+                  margin: 10px 0;
+                  font-size: 13px;
+                  background: #f0f0f0;
+                  padding: 10px;
+                  border-radius: 5px;
+                  color: #222222;
+                  border: 1px solid #dddddd;
+              }
+              .ws-info p {
+                  margin: 4px 0;
+                  color: #222222;
+                  font-weight: 500;
+              }
+              .ws-controls {
+                  display: flex;
+                  justify-content: space-between;
+                  margin: 10px 0;
+                  flex-wrap: wrap;
+                  gap: 5px;
+              }
+              .ws-controls button {
+                  flex: 1;
+                  min-width: 45%;
+                  margin: 0 0 5px 0;
+                  padding: 8px 0;
+                  border: none;
+                  border-radius: 4px;
+                  background: #3a75c4;
+                  color: white;
+                  font-weight: bold;
+                  cursor: pointer;
+              }
+              .ws-controls button:hover {
+                  background: #2a5594;
+              }
+              .url-history {
+                  margin-top: 12px;
+                  background: #f0f0f0;
+                  padding: 10px;
+                  border-radius: 5px;
+                  max-height: 150px;
+                  overflow-y: auto;
+                  border: 1px solid #dddddd;
+              }
+              .url-history h4 {
+                  margin: 0 0 10px 0;
+                  font-size: 14px;
+                  color: #222222;
+                  font-weight: bold;
+              }
+              #history-list {
+                  margin: 0;
+                  padding: 0;
+                  list-style: none;
+                  color: #222222;
+              }
+              #history-list li {
+                  padding: 6px 0;
+                  border-bottom: 1px solid #dddddd;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  font-size: 13px;
+                  color: #222222;
+              }
+              #history-list li a {
+                  flex: 1;
+                  color: #0055aa;
+                  text-decoration: none;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                  margin-right: 8px;
+                  font-weight: 500;
+              }
+              #history-list li a:hover {
+                  text-decoration: underline;
+                  color: #003377;
+              }
+              #history-list li button {
+                  background: #dddddd;
+                  border: none;
+                  border-radius: 4px;
+                  padding: 3px 8px;
+                  font-size: 12px;
+                  cursor: pointer;
+                  color: #222222;
+                  font-weight: 500;
+              }
+              #history-list li button:hover {
+                  background: #cccccc;
+              }
+              .ws-minimized {
+                  width: 45px;
+                  height: 45px;
+                  overflow: hidden;
+                  border-radius: 50%;
+              }
+              .ws-minimized .ws-body {
+                  display: none;
+              }
+              .ws-minimized .ws-header {
+                  border-radius: 50%;
+                  padding: 0;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  height: 45px;
+              }
+              .ws-minimized .ws-close-btn {
+                  display: none;
+              }
+          `;
 
     document.body.appendChild(style);
     document.body.appendChild(panel);
@@ -614,6 +805,7 @@
       const playBtn = document.getElementById('btn-play');
       const pauseBtn = document.getElementById('btn-pause');
       const keyFBtn = document.getElementById('btn-key-f');
+      const reconnectBtn = document.getElementById('btn-reconnect');
 
       if (playBtn) {
         playBtn.addEventListener('click', function () {
@@ -630,6 +822,24 @@
       if (keyFBtn) {
         keyFBtn.addEventListener('click', function () {
           sendKeyPressToServer('f');
+        });
+      }
+
+      if (reconnectBtn) {
+        reconnectBtn.addEventListener('click', function () {
+          // 手动触发重连
+          console.log('手动触发WebSocket重连');
+          // 重置重连计数
+          wsReconnectAttempts = 0;
+          // 连接WebSocket
+          connectWebSocket();
+
+          // 显示通知
+          GM_notification({
+            title: 'WebSocket重连',
+            text: '正在尝试重新连接到服务器...',
+            timeout: 2000
+          });
         });
       }
     }

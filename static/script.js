@@ -448,7 +448,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // 启动WebSocket连接状态检测
       if (!wsCheckInterval) {
-        wsCheckInterval = setInterval(checkWebSocketConnection, 10000);
+        wsCheckInterval = setInterval(checkWebSocketConnection, 500);
       }
     }
   });

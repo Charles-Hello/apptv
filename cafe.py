@@ -44,9 +44,9 @@ def setup_passwordless_sudo():
         print(f"执行sudo命令失败：{e}")
         return False
 
-def set_wake_time():
+def set_wake_time(seconds):
     # 计算10秒后的时间
-    wake_time = datetime.now() + timedelta(seconds=1440)
+    wake_time = datetime.now() + timedelta(seconds)
     wake_time_str = wake_time.strftime("%m/%d/%y %H:%M:%S")
     
     # 尝试使用无密码方式
@@ -75,6 +75,6 @@ if __name__ == "__main__":
     # 首次运行尝试配置或直接使用密码
     if setup_passwordless_sudo():
         set_wake_time()
-        sleep_mac()
+        # sleep_mac()
     else:
         print("无法执行pmset命令，程序退出")

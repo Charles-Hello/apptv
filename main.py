@@ -477,8 +477,8 @@ def handle_system_sleep(data):
         
         # 设置无密码执行pmset的权限
         if setup_passwordless_sudo():
-            # 设置10秒后唤醒
-            set_wake_time()
+            # 设置1秒后唤醒
+            set_wake_time(100)
             
             # 执行系统睡眠操作
             sleep_mac()
@@ -506,12 +506,10 @@ def handle_keep_alive():
 
 @socketio.on('quick_sleep_wake')
 def handle_quick_sleep_wake():
-    """处理快速睡眠唤醒请求来停止所有音频"""
+    """处理唤醒"""
     try:
         # 设置10秒后唤醒
-        set_wake_time()
-        # 立即睡眠
-        sleep_mac()
+        set_wake_time(0.1)
         emit('quick_sleep_wake_response', {
             "success": True,
             "message": "系统将短暂睡眠并自动唤醒"
@@ -591,6 +589,41 @@ def send_esp32_key_http():
         "key_code": key_code,
         "message": "按键已发送到ESP32" if success else "发送按键失败"
     })
+
+# 添加HTTP路由处理快速睡眠唤醒
+@app.route('/quick-sleep-wake', methods=['GET'])
+def quick_sleep_wake_http():
+    """通过HTTP请求处理快速睡眠唤醒"""
+    try:
+      
+        # 设置0.1分钟后唤醒
+        set_wake_time(0.1)
+        return jsonify({
+            "success": True,
+            "message": "系统将短暂睡眠并自动唤醒"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+@app.route('/quick-sleep', methods=['GET'])
+def quick_sleep_http():
+    """通过HTTP请求处理快速睡眠唤醒"""
+    try:
+      
+        sleep_mac()
+        return jsonify({
+            "success": True,
+            "message": "系统将短暂睡眠并自动唤醒"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5003, debug=True)
