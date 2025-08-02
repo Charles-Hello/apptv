@@ -1091,6 +1091,35 @@
               if (fullscreenButton) {
                 fullscreenButton.click();
               }
+              const resolutionBar = document.getElementById('player_resolution_bar_player');
+
+if (resolutionBar) {
+    // 获取所有分辨率按钮
+    const resolutionButtons = resolutionBar.querySelectorAll('[id^="resolution_item_"][id$="_player"]');
+    
+    let highestResolutionButton = null;
+    let highestLevel = -Infinity;
+    
+    // 遍历所有按钮，找到最高分辨率（level最大的）
+    resolutionButtons.forEach(button => {
+        const level = parseInt(button.getAttribute('level'));
+        // 排除自动选项（level为-1）
+        if (level > highestLevel && level >= 0) {
+            highestLevel = level;
+            highestResolutionButton = button;
+        }
+    });
+    
+    // 点击最高分辨率按钮
+    if (highestResolutionButton) {
+        highestResolutionButton.click();
+        console.log(`已点击最高分辨率按钮: ${highestResolutionButton.id}, level: ${highestLevel}`);
+    } else {
+        console.log('未找到合适的分辨率按钮');
+    }
+} else {
+    console.log('未找到分辨率选择器容器');
+}
             } else {
               // 上/下方向键: 切换央视频道 (1-17)
               const currentUrl = window.location.href;
