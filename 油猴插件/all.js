@@ -2359,12 +2359,11 @@
     }, true);
   })();
   // 执行点击最高分辨率按钮的主要函数
-function clickHighestResolution() {
-  // 定位分辨率选择器容器
-    debugger
-  const resolutionBar = document.getElementById('player_resolution_bar_player');
+  function clickHighestResolution() {
+    // 定位分辨率选择器容器
+    const resolutionBar = document.getElementById('player_resolution_bar_player');
 
-  if (resolutionBar) {
+    if (resolutionBar) {
       // 获取所有分辨率按钮
       const resolutionButtons = resolutionBar.querySelectorAll('[id^="resolution_item_"][id$="_player"]');
 
@@ -2373,53 +2372,53 @@ function clickHighestResolution() {
 
       // 遍历所有按钮，找到最高分辨率（level最大的）
       resolutionButtons.forEach(button => {
-          const level = parseInt(button.getAttribute('level'));
-          // 排除自动选项（level为-1）
-          if (level > highestLevel && level >= 0) {
-              highestLevel = level;
-              highestResolutionButton = button;
-          }
+        const level = parseInt(button.getAttribute('level'));
+        // 排除自动选项（level为-1）
+        if (level > highestLevel && level >= 0) {
+          highestLevel = level;
+          highestResolutionButton = button;
+        }
       });
 
       // 点击最高分辨率按钮
       if (highestResolutionButton) {
-          highestResolutionButton.click();
-          console.log(`已点击最高分辨率按钮: ${highestResolutionButton.id}, level: ${highestLevel}`);
-          return true;
+        highestResolutionButton.click();
+        console.log(`已点击最高分辨率按钮: ${highestResolutionButton.id}, level: ${highestLevel}`);
+        return true;
       } else {
-          console.log('未找到合适的分辨率按钮');
-          return false;
+        console.log('未找到合适的分辨率按钮');
+        return false;
       }
-  } else {
+    } else {
       console.log('未找到分辨率选择器容器');
       return false;
+    }
   }
-}
 
 
-function clickWithRetry(maxRetries = 5, delay = 1000) {
+  function clickWithRetry(maxRetries = 5, delay = 1000) {
     let attempts = 0;
 
     function tryClick() {
-        attempts++;
-        if (clickHighestResolution()) {
-            console.log(`成功执行，尝试次数: ${attempts}`);
-        } else if (attempts < maxRetries) {
-            console.log(`第${attempts}次尝试失败，${delay}ms后重试...`);
-            setTimeout(tryClick, delay);
-        } else {
-            console.log(`达到最大重试次数(${maxRetries})，执行失败`);
-        }
+      attempts++;
+      if (clickHighestResolution()) {
+        console.log(`成功执行，尝试次数: ${attempts}`);
+      } else if (attempts < maxRetries) {
+        console.log(`第${attempts}次尝试失败，${delay}ms后重试...`);
+        setTimeout(tryClick, delay);
+      } else {
+        console.log(`达到最大重试次数(${maxRetries})，执行失败`);
+      }
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', tryClick);
+      document.addEventListener('DOMContentLoaded', tryClick);
     } else {
-        tryClick();
+      tryClick();
     }
-}
+  }
 
-clickWithRetry();
+  clickWithRetry();
 
 
 
