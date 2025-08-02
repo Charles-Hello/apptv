@@ -1081,39 +1081,39 @@
               }
             }
           }
-                // --- 央视直播(tv.cctv.com) 专属功能 ---
-                else if (window.location.href.startsWith('https://tv.cctv.com/live/cctv')) {
-                    e.preventDefault(); // 阻止默认行为 (如滚动页面)
+          // --- 央视直播(tv.cctv.com) 专属功能 ---
+          else if (window.location.href.startsWith('https://tv.cctv.com/live/cctv')) {
+            e.preventDefault(); // 阻止默认行为 (如滚动页面)
 
-                    if (key === 'f') {
-                        // 'f'键: 全屏
-                        const fullscreenButton = document.getElementById('player_fullscreen_no_mouseover_player');
-                        if (fullscreenButton) {
-                            fullscreenButton.click();
-                        }
-                    } else {
-                        // 上/下方向键: 切换央视频道 (1-17)
-                        const currentUrl = window.location.href;
-                        const match = currentUrl.match(/\/live\/cctv(\d+)/);
-                        
-                        if (match) {
-                            let currentChannel = parseInt(match[1]);
-                            let nextChannel;
-                            
-                            if (key === 'arrowdown') {
-                                // 下键: 切换到下一个频道
-                                nextChannel = currentChannel >= 17 ? 1 : currentChannel + 1;
-                            } else { // arrowup
-                                // 上键: 切换到上一个频道
-                                nextChannel = currentChannel <= 1 ? 17 : currentChannel - 1;
-                            }
-                            
-                            // 跳转到新的频道页面
-                            const newUrl = `https://tv.cctv.com/live/cctv${nextChannel}/`;
-                            window.location.href = newUrl;
-                        }
-                    }
+            if (key === 'f') {
+              // 'f'键: 全屏
+              const fullscreenButton = document.getElementById('player_fullscreen_no_mouseover_player');
+              if (fullscreenButton) {
+                fullscreenButton.click();
+              }
+            } else {
+              // 上/下方向键: 切换央视频道 (1-17)
+              const currentUrl = window.location.href;
+              const match = currentUrl.match(/\/live\/cctv(\d+)/);
+
+              if (match) {
+                let currentChannel = parseInt(match[1]);
+                let nextChannel;
+
+                if (key === 'arrowdown') {
+                  // 下键: 切换到下一个频道
+                  nextChannel = currentChannel >= 17 ? 1 : currentChannel + 1;
+                } else { // arrowup
+                  // 上键: 切换到上一个频道
+                  nextChannel = currentChannel <= 1 ? 17 : currentChannel - 1;
                 }
+
+                // 跳转到新的频道页面
+                const newUrl = `https://tv.cctv.com/live/cctv${nextChannel}/`;
+                window.location.href = newUrl;
+              }
+            }
+          }
           break;
       }
     }, true); // 使用捕获阶段以确保能优先处理事件
