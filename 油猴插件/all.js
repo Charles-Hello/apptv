@@ -1096,6 +1096,21 @@
               // 上/下方向键: 切换央视频道 (1-17)
               const currentUrl = window.location.href;
 
+              // 处理CCTV-9纪录频道的特殊情况
+              if (currentUrl.includes('/live/cctvjilu/')) {
+                let nextChannel;
+                if (key === 'arrowdown') {
+                  // 下键: 切换到下一个频道 (CCTV-10)
+                  nextChannel = 10;
+                } else { // arrowup
+                  // 上键: 切换到上一个频道 (CCTV-8)
+                  nextChannel = 8;
+                }
+                const newUrl = `https://tv.cctv.com/live/cctv${nextChannel}/`;
+                window.location.href = newUrl;
+                return;
+              }
+
               // 处理CCTV-14少儿频道的特殊情况
               if (currentUrl.includes('/live/cctvchild/')) {
                 let nextChannel;
@@ -1119,7 +1134,10 @@
 
                 if (key === 'arrowdown') {
                   // 下键: 切换到下一个频道
-                  if (currentChannel === 13) {
+                  if (currentChannel === 8) {
+                    // 从CCTV-8切换到CCTV-9纪录频道
+                    nextChannel = 'jilu';
+                  } else if (currentChannel === 13) {
                     // 从CCTV-13切换到CCTV-14少儿频道
                     nextChannel = 'child';
                   } else if (currentChannel === 15) {
@@ -1130,7 +1148,10 @@
                   }
                 } else { // arrowup
                   // 上键: 切换到上一个频道
-                  if (currentChannel === 15) {
+                  if (currentChannel === 10) {
+                    // 从CCTV-10切换到CCTV-9纪录频道
+                    nextChannel = 'jilu';
+                  } else if (currentChannel === 15) {
                     // 从CCTV-15切换到CCTV-14少儿频道
                     nextChannel = 'child';
                   } else if (currentChannel === 13) {
