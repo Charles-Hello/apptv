@@ -65,8 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const arrowRightBtn = document.getElementById('arrow-right-btn');
   const fKeyBtn = document.getElementById('f-key-btn');
   const spaceBtn = document.getElementById('space-btn');
-  const desktopLeftBtn = document.getElementById('desktop-left-btn');
-  const desktopRightBtn = document.getElementById('desktop-right-btn');
+  const cctvliveBtn = document.getElementById('switch_cctv_live');
   const guangdongLiveBtn = document.getElementById('guangdong-live-btn');
   const volumeDownBtn = document.getElementById('volume-down-btn');
   const volumeUpBtn = document.getElementById('volume-up-btn');
@@ -117,27 +116,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 启用/禁用按钮
   function enableButtons(enable) {
-    playPauseBtn.disabled = !enable;
-    arrowUpBtn.disabled = !enable;
-    arrowDownBtn.disabled = !enable;
-    arrowLeftBtn.disabled = !enable;
-    arrowRightBtn.disabled = !enable;
-    fKeyBtn.disabled = !enable;
-    spaceBtn.disabled = !enable;
-    volumeDownBtn.disabled = !enable;
-    volumeUpBtn.disabled = !enable;
-    desktopLeftBtn.disabled = !enable;
-    desktopRightBtn.disabled = !enable;
-    guangdongLiveBtn.disabled = !enable;
-    muteBtn.disabled = !enable;
-    toggleHdrBtn.disabled = !enable; // 添加HDR按钮
+    // 添加空值检查，防止因为找不到元素而报错
+    if (playPauseBtn) playPauseBtn.disabled = !enable;
+    if (arrowUpBtn) arrowUpBtn.disabled = !enable;
+    if (arrowDownBtn) arrowDownBtn.disabled = !enable;
+    if (arrowLeftBtn) arrowLeftBtn.disabled = !enable;
+    if (arrowRightBtn) arrowRightBtn.disabled = !enable;
+    if (fKeyBtn) fKeyBtn.disabled = !enable;
+    if (spaceBtn) spaceBtn.disabled = !enable;
+    if (volumeDownBtn) volumeDownBtn.disabled = !enable;
+    if (volumeUpBtn) volumeUpBtn.disabled = !enable;
+    if (cctvliveBtn) cctvliveBtn.disabled = !enable;
+    if (guangdongLiveBtn) guangdongLiveBtn.disabled = !enable;
+    if (muteBtn) muteBtn.disabled = !enable;
+    if (toggleHdrBtn) toggleHdrBtn.disabled = !enable; // 添加HDR按钮 
 
     // 唤醒按钮不再根据唤醒状态禁用，只根据连接状态
-    wakeScreenBtn.disabled = !enable;
+    if (wakeScreenBtn) wakeScreenBtn.disabled = !enable;
   }
 
   // 更新播放/暂停按钮状态
   function updatePlayPauseButton() {
+    if (!playPauseBtn) return; // 添加空值检查
+
     if (isPlaying) {
       playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
       playPauseBtn.setAttribute('aria-label', '暂停');
@@ -149,6 +150,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 更新HDR按钮状态
   function updateHdrButton() {
+    if (!toggleHdrBtn) return; // 添加空值检查
+
     if (isHdrOn) {
       toggleHdrBtn.innerHTML = '<i class="fas fa-adjust"></i> HDR: 开';
       toggleHdrBtn.classList.add('active');
@@ -205,7 +208,9 @@ document.addEventListener('DOMContentLoaded', function () {
         socket.emit('get_status');
 
         // 显示音量控制
-        volumeContainer.classList.remove('hidden');
+        if (volumeContainer) {
+          volumeContainer.classList.remove('hidden');
+        }
 
         // 不再需要获取唤醒状态
         // socket.emit('get_wake_status');
@@ -222,7 +227,9 @@ document.addEventListener('DOMContentLoaded', function () {
         enableButtons(false);
 
         // 隐藏音量控制
-        volumeContainer.classList.add('hidden');
+        if (volumeContainer) {
+          volumeContainer.classList.add('hidden');
+        }
       });
 
       // 连接错误
@@ -498,157 +505,172 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // 播放/暂停按钮
-  playPauseBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      if (isPlaying) {
-        // 当前是播放状态，发送暂停命令
-        socket.emit('video_control', { action: 'pause' });
-        statusText.textContent = '发送暂停命令';
-        isPlaying = false;
+  if (playPauseBtn) {
+    playPauseBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        if (isPlaying) {
+          // 当前是播放状态，发送暂停命令
+          socket.emit('video_control', { action: 'pause' });
+          statusText.textContent = '发送暂停命令';
+          isPlaying = false;
+        } else {
+          // 当前是暂停状态，发送播放命令
+          socket.emit('video_control', { action: 'play' });
+          statusText.textContent = '发送播放命令';
+          isPlaying = true;
+        }
+        // 更新按钮状态
+        updatePlayPauseButton();
       } else {
-        // 当前是暂停状态，发送播放命令
-        socket.emit('video_control', { action: 'play' });
-        statusText.textContent = '发送播放命令';
-        isPlaying = true;
+        statusText.textContent = 'WebSocket未连接，无法控制播放';
       }
-      // 更新按钮状态
-      updatePlayPauseButton();
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法控制播放';
-    }
-  });
+    });
+  }
 
   // 方向键上
-  arrowUpBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('key_press', { direction: 'up' });
-      statusText.textContent = '发送方向上键命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送命令';
-    }
-  });
+  if (arrowUpBtn) {
+    arrowUpBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('key_press', { direction: 'up' });
+        statusText.textContent = '发送方向上键命令';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
 
   // 方向键下
-  arrowDownBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('key_press', { direction: 'down' });
-      statusText.textContent = '发送方向下键命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送命令';
-    }
-  });
+  if (arrowDownBtn) {
+    arrowDownBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('key_press', { direction: 'down' });
+        statusText.textContent = '发送方向下键命令';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
 
   // 方向键左
-  arrowLeftBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('key_press', { direction: 'left' });
-      statusText.textContent = '发送方向左键命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送命令';
-    }
-  });
+  if (arrowLeftBtn) {
+    arrowLeftBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('key_press', { direction: 'left' });
+        statusText.textContent = '发送方向左键命令';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
 
   // 方向键右
-  arrowRightBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('key_press', { direction: 'right' });
-      statusText.textContent = '发送方向右键命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送命令';
-    }
-  });
+  if (arrowRightBtn) {
+    arrowRightBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('key_press', { direction: 'right' });
+        statusText.textContent = '发送方向右键命令';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
 
   // 确认键 (F)
-  fKeyBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('key_press', { direction: 'f' });
-      statusText.textContent = '发送全屏命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送命令';
-    }
-  });
+  if (fKeyBtn) {
+    fKeyBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('key_press', { direction: 'f' });
+        statusText.textContent = '发送全屏命令';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
 
   // 空格键
-  spaceBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('play_pause');
-      statusText.textContent = '发送空格键命令';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送命令';
-    }
-  });
+  if (spaceBtn) {
+    spaceBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('play_pause');
+        statusText.textContent = '发送空格键命令';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
 
   // 音量减
-  volumeDownBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('volume_control', { direction: 'down' });
-      statusText.textContent = '减小音量';
+  if (volumeDownBtn) {
+    volumeDownBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('volume_control', { direction: 'down' });
+        statusText.textContent = '减小音量';
 
-      // 如果音量可能会降到0，确保已记录最后的非零音量
-      if (currentVolume <= 5 && currentVolume > 0) {
-        lastNonZeroVolume = currentVolume;
+        // 如果音量可能会降到0，确保已记录最后的非零音量
+        if (currentVolume <= 5 && currentVolume > 0) {
+          lastNonZeroVolume = currentVolume;
+        }
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法控制音量';
       }
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法控制音量';
-    }
-  });
+    });
+  }
 
   // 音量加
-  volumeUpBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('volume_control', { direction: 'up' });
-      statusText.textContent = '增大音量';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法控制音量';
-    }
-  });
+  if (volumeUpBtn) {
+    volumeUpBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('volume_control', { direction: 'up' });
+        statusText.textContent = '增大音量';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法控制音量';
+      }
+    });
+  }
 
   // 静音按钮
-  muteBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      if (isMuted) {
-        // 如果当前是静音状态，恢复到上次的非零音量
-        socket.emit('set_volume', { volume: lastNonZeroVolume });
-        statusText.textContent = '恢复音量';
+  if (muteBtn) {
+    muteBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        if (isMuted) {
+          // 如果当前是静音状态，恢复到上次的非零音量
+          socket.emit('set_volume', { volume: lastNonZeroVolume });
+          statusText.textContent = '恢复音量';
+        } else {
+          // 如果当前不是静音状态，设置为静音
+          socket.emit('set_volume', { volume: 0 });
+          statusText.textContent = '已静音';
+        }
       } else {
-        // 如果当前不是静音状态，设置为静音
-        socket.emit('set_volume', { volume: 0 });
-        statusText.textContent = '已静音';
+        statusText.textContent = 'WebSocket未连接，无法设置静音';
       }
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法设置静音';
-    }
-  });
+    });
+  }
 
-  // 桌面切换 - 电影
-  desktopLeftBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('switch_desktop', { direction: 'left' });
-      statusText.textContent = '切换到电影桌面';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法切换桌面';
-    }
-  });
-  
-  guangdongLiveBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('switch_guangdong_live');
-      statusText.textContent = '切换到电影桌面';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法切换桌面';
-    }
-  });
+  // cctv 直播
+  if (cctvliveBtn) {
+    cctvliveBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('switch_cctv_live');
+        statusText.textContent = '切换到电影桌面';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法切换桌面';
+      }
+    });
+  }
+
+  if (guangdongLiveBtn) {
+    guangdongLiveBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('switch_guangdong_live');
+        statusText.textContent = '切换到电影桌面';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法切换桌面';
+      }
+    });
+  }
 
 
-  // 桌面切换 - 电视
-  desktopRightBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('switch_desktop', { direction: 'right' });
-      statusText.textContent = '切换到电视桌面';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法切换桌面';
-    }
-  });
 
   // 自动连接（针对移动设备）
   window.addEventListener('load', function () {
@@ -667,25 +689,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
   // 屏幕唤醒按钮 - 修改为发送~
-  wakeScreenBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      // 发送～到ESP32
-      socket.emit('send_esp32_key', { key_code: "FLAG" });
-      statusText.textContent = '已发送~到ESP32';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法发送~';
-    }
-  });
+  if (wakeScreenBtn) {
+    wakeScreenBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        // 发送～到ESP32
+        socket.emit('send_esp32_key', { key_code: "FLAG" });
+        statusText.textContent = '已发送~到ESP32';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法发送~';
+      }
+    });
+  }
 
   // HDR切换按钮
-  toggleHdrBtn.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('toggle_hdr');
-      statusText.textContent = '正在切换HDR状态...';
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法切换HDR';
-    }
-  });
+  if (toggleHdrBtn) {
+    toggleHdrBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('toggle_hdr');
+        statusText.textContent = '正在切换HDR状态...';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法切换HDR';
+      }
+    });
+  }
 
   // 添加页面可见性变化事件处理
   document.addEventListener('visibilitychange', function () {
@@ -727,21 +753,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 关机按钮的事件监听器
   const sleepButton = document.getElementById('sleepButton');
-  sleepButton.addEventListener('click', function () {
-    if (socket && socket.connected) {
-      socket.emit('system_sleep', {});
-      statusText.textContent = '正在关闭所有媒体并进入睡眠...';
+  if (sleepButton) {
+    sleepButton.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('system_sleep', {});
+        statusText.textContent = '正在关闭所有媒体并进入睡眠...';
 
-      // 监听睡眠响应事件
-      socket.once('system_sleep_response', function (data) {
-        if (data.success) {
-          statusText.textContent = data.message;
-        } else {
-          statusText.textContent = '睡眠操作失败: ' + data.message;
-        }
-      });
-    } else {
-      statusText.textContent = 'WebSocket未连接，无法执行关机操作';
-    }
-  });
+        // 监听睡眠响应事件
+        socket.once('system_sleep_response', function (data) {
+          if (data.success) {
+            statusText.textContent = data.message;
+          } else {
+            statusText.textContent = '睡眠操作失败: ' + data.message;
+          }
+        });
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法执行关机操作';
+      }
+    });
+  }
 }); 

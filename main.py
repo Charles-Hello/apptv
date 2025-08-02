@@ -450,6 +450,15 @@ def handle_switch_desktop():
                   "timestamp": int(__import__('time').time())
               })    
        
+@socketio.on('switch_cctv_live')
+def handle_switch_desktop():
+    """处理桌面切换请求"""
+    press_key("space")
+    focus_app("Google Chrome")
+    socketio.emit('open_url_command', {
+                  "url": 'https://tv.cctv.com/live/cctv13/',
+                  "timestamp": int(__import__('time').time())
+              })   
 
 @socketio.on('wake_screen')
 def handle_wake_screen(data):
