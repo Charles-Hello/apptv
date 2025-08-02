@@ -6,6 +6,7 @@ import threading
 import datetime
 import asyncio
 import websockets
+import requests
 from 测试.focus_app import focus_app
 from cafe import sleep_mac, set_wake_time, setup_passwordless_sudo
 
@@ -160,20 +161,21 @@ def pause_switch_resume(direction):
             
             # 5. 激活 Google Chrome
             focus_app("Google Chrome")
-            
             # 6. 通过WebSocket发送播放命令给浏览器
             socketio.emit('video_control_command', {
                 "action": "play",
                 "timestamp": int(__import__('time').time())
             })
+
             
-        else:  # direction == "right"
+        else:  # direction == "right" 
             # 切换到右边桌面（app桌面）
             # 1. 通过WebSocket发送暂停命令给浏览器
             socketio.emit('video_control_command', {
                 "action": "pause",
                 "timestamp": int(__import__('time').time())
             })
+            press_key("space")
             
             # 2. 等待短暂时间，确保浏览器处理暂停命令
             time.sleep(0.5)
@@ -437,6 +439,17 @@ def handle_switch_desktop(data):
         "success": success, 
         "direction": direction
     })
+
+@socketio.on('switch_guangdong_live')
+def handle_switch_desktop():
+    """处理桌面切换请求"""
+    press_key("space")
+    focus_app("Google Chrome")
+    socketio.emit('open_url_command', {
+                  "url": 'https://www.gdtv.cn/tvChannelDetail/45',
+                  "timestamp": int(__import__('time').time())
+              })    
+       
 
 @socketio.on('wake_screen')
 def handle_wake_screen(data):

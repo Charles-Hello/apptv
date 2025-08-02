@@ -1,11 +1,12 @@
 // ==UserScript==
-// @name         浏览器远程控制 - 链接接收器
+// @name         电影+广东浏览器远程控制 - 链接接收器
 // @namespace    http://tampermonkey.net/
 // @version      0.1.3
 // @description  通过WebSocket连接到本地服务器，接收并打开视频链接，自动全屏视频，支持远程视频控制
 // @author       You
 // @match        *://*/*
 // @match        https://movie.tnanko.top/*
+// @match        https://www.gdtv.cn/*
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
 // @connect      cdn.socket.io
@@ -13,8 +14,6 @@
 // @require      https://cdn.socket.io/4.6.0/socket.io.min.js
 // ==/UserScript==
 
-// todo 
-// sendKeyToESP32("F");
 
 
 (function () {
@@ -35,7 +34,19 @@
   let wsHeartbeatInterval = 30000; // 心跳检测间隔30秒
 
   // 检查是否在目标网站上
-  const isTargetWebsite = window.location.href.includes('movie.tnanko.top');
+  const isTargetWebsite = /movie\.tnanko\.top|www\.gdtv\.cn/.test(window.location.href);
+
+    fetch('https://tv.tnanko.top/send-esp32-key?key_code=F')
+      .then(response => {
+        if (response.ok) {
+          console.log('已向ESP32发送F键指令');
+        } else {
+          console.warn('发送F键指令失败', response.status);
+        }
+      })
+      .catch(err => {
+        console.error('发送F键指令时发生错误', err);
+      });
 
   // 创建控制面板
   createControlPanel();
@@ -572,7 +583,7 @@
               <div class="ws-header">远程链接接收器 <span class="ws-close-btn">&times;</span></div>
               <div class="ws-body">
                   <div class="ws-status-row">
-                      <span>连接状态:</span> 
+                      <span>连接状态:</span>
                       <span id="ws-connection-status" class="status-disconnected">未连接</span>
                       <button id="btn-reconnect" title="重新连接">🔄</button>
                   </div>
@@ -942,4 +953,194 @@
       historyList.appendChild(li);
     });
   }
+
+  //广东荔枝网自动播放
+  (function() {
+    'use strict';
+
+    // --- Part 1: Generic Video Control Functions ---
+
+    /**
+     * 寻找页面上最可能被用户观看的视频。
+     * 优先选择尺寸较大且在可视区域内的视频。
+     * @returns {HTMLVideoElement|null} 返回找到的视频元素，如果找不到则返回 null。
+     */
+    function findActiveVideo() {
+        const videos = Array.from(document.querySelectorAll('video'));
+        if (videos.length === 0) {
+            return null;
+        }
+
+        let bestVideo = null;
+        let maxScore = -1;
+
+        for (const video of videos) {
+            const rect = video.getBoundingClientRect();
+            // 必须是可见的，并且有有效尺寸
+            if (rect.width > 100 && rect.height > 100) {
+                const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+
+                // 计算视频在视口中的可见区域面积
+                const visibleX = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+                const visibleY = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+                const visibleArea = visibleX * visibleY;
+
+                // 简单的评分系统：可见面积越大，分数越高
+                if (visibleArea > 0) {
+                    let score = visibleArea;
+                    // 如果视频正在播放，给予更高权重
+                    if (!video.paused) {
+                        score *= 1.5;
+                    }
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestVideo = video;
+                    }
+                }
+            }
+        }
+        // 如果没有视频在视口内，则返回第一个有尺寸的视频
+        return bestVideo || videos.find(v => v.offsetWidth > 100 && v.offsetHeight > 100) || null;
+    }
+
+    /**
+     * 切换视频的播放/暂停状态。
+     * @param {HTMLVideoElement} video - 目标视频元素。
+     */
+    function togglePlayPause(video) {
+        if (video.paused) {
+            video.play().catch(error => console.error("脚本播放视频失败:", error));
+        } else {
+            video.pause();
+        }
+    }
+
+
+    // --- Part 2: Main Keyboard Event Listener ---
+
+    window.addEventListener('keydown', function(e) {
+        const target = e.target;
+        const key = e.key.toLowerCase();
+
+        // 如果焦点在输入框、文本区域或可编辑元素中，则禁用所有快捷键
+        if (
+            target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable
+        ) {
+            return;
+        }
+
+        // 根据按键执行不同操作
+        switch (key) {
+            // --- 通用功能: 空格键播放/暂停 ---
+            case ' ':
+                // 阻止空格键的默认行为（例如页面滚动）
+                e.preventDefault();
+                e.stopPropagation();
+                const activeVideo = findActiveVideo();
+                if (activeVideo) {
+                    togglePlayPause(activeVideo);
+                }
+                break;
+
+            // --- 荔枝网(gdtv.cn) 专属功能 ---
+            case 'f':
+            case 'arrowup':
+            case 'arrowdown':
+                // 仅在荔枝网的频道详情页执行
+                if (window.location.href.startsWith('https://www.gdtv.cn/tvChannelDetail/')) {
+                    e.preventDefault(); // 阻止默认行为 (如滚动页面)
+
+                    if (key === 'f') {
+                        // 'f'键: 全屏
+                        const fullscreenButton = document.querySelector('.vjs-fullscreen-control');
+                        if (fullscreenButton) {
+                            fullscreenButton.click();
+                        }
+                    } else {
+                        // 上/下方向键: 切换频道
+                        const channels = Array.from(document.querySelectorAll('a.index__tag-channel___3jA7i'));
+                        if (channels.length === 0) break;
+
+                        const currentIndex = channels.findIndex(channel => channel.classList.contains('index__current-channel___1fCTH'));
+                        if (currentIndex === -1) break;
+
+                        let nextIndex;
+                        if (key === 'arrowdown') {
+                            nextIndex = (currentIndex + 1) % channels.length;
+                        } else { // arrowup
+                            nextIndex = (currentIndex - 1 + channels.length) % channels.length;
+                        }
+
+                        const nextChannel = channels[nextIndex];
+                        if (nextChannel) {
+                            nextChannel.click();
+                        }
+                    }
+                }
+                break;
+        }
+    }, true); // 使用捕获阶段以确保能优先处理事件
+
+  })();
+
+  //设置浏览器标签页静音
+  (function() {
+    'use strict';
+
+    // Detect which visibility API the browser uses
+    let hidden, visibilityChange;
+    if (typeof document.hidden !== "undefined") {
+        hidden = "hidden";
+        visibilityChange = "visibilitychange";
+    } else if (typeof document.webkitHidden !== "undefined") {
+        hidden = "webkitHidden";
+        visibilityChange = "webkitvisibilitychange";
+    } else if (typeof document.msHidden !== "undefined") {
+        hidden = "msHidden";
+        visibilityChange = "msvisibilitychange";
+    }
+
+    // Function to handle tab visibility changes
+    function handleVisibilityChange() {
+        const mediaElements = document.querySelectorAll("audio, video");
+
+        if (document[hidden]) {
+            // Tab is hidden, mute all media
+            mediaElements.forEach(element => {
+                if (!element.dataset.wasMuted) {
+                    element.dataset.wasMuted = element.muted;
+                    element.muted = true;
+                }
+            });
+        } else {
+            // Tab is visible again, restore previous mute state
+            mediaElements.forEach(element => {
+                if (element.dataset.wasMuted !== undefined) {
+                    element.muted = (element.dataset.wasMuted === "true");
+                    delete element.dataset.wasMuted;
+                }
+            });
+        }
+    }
+
+    // Add event listener for visibility changes
+    document.addEventListener(visibilityChange, handleVisibilityChange, false);
+})();
+//movie页面左右快进后退
+(function() {
+  'use strict';
+  document.addEventListener('keydown', (e) => {
+      const video = document.querySelector('.dplayer-video');
+      if (video && e.key === 'ArrowRight') {
+          video.currentTime += 5;
+          e.stopPropagation();
+      } else if (video && e.key === 'ArrowLeft') {
+          video.currentTime -= 5;
+          e.stopPropagation();
+      }
+  }, true);
+})();
 })();

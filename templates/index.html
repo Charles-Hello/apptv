@@ -129,10 +129,13 @@
         <div class="desktop-switch-integrated">
           <div class="btn-group">
             <button id="desktop-left-btn" class="btn btn-warning" disabled>
-              <i class="fas fa-film"></i> 切换电影
+              <i class="fas fa-film"></i> 电视盒子
             </button>
             <button id="desktop-right-btn" class="btn btn-warning" disabled>
-              <i class="fas fa-tv"></i> 切换电视
+              <i class="fas fa-tv"></i> 中央直播
+            </button>
+            <button id="guangdong-live-btn" class="btn btn-warning" disabled>
+              <i class="fas fa-tv"></i> 广东直播
             </button>
           </div>
         </div>
@@ -143,7 +146,7 @@
       </div>
 
       <footer>
-        <p>© 2023 Apple TV 遥控器 | <span id="status-text">未连接</span></p>
+        <p>© 2025 Apple TV 遥控器 | <span id="status-text">未连接</span></p>
       </footer>
     </div>
 
@@ -164,7 +167,8 @@
   <script>
     // 自动检测当前网页协议，决定WebSocket连接方式
     window.isHttps = window.location.protocol === 'https:';
-    console.log("当前使用" + (window.isHttps ? "HTTPS" : "HTTP") + "协议"
+    console.log("当前使用" + (window.isHttps ? "HTTPS" : "HTTP") + "协议")
+
   </script>
 </body>
 

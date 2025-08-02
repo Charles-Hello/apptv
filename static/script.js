@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const spaceBtn = document.getElementById('space-btn');
   const desktopLeftBtn = document.getElementById('desktop-left-btn');
   const desktopRightBtn = document.getElementById('desktop-right-btn');
+  const guangdongLiveBtn = document.getElementById('guangdong-live-btn');
   const volumeDownBtn = document.getElementById('volume-down-btn');
   const volumeUpBtn = document.getElementById('volume-up-btn');
 
@@ -127,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function () {
     volumeUpBtn.disabled = !enable;
     desktopLeftBtn.disabled = !enable;
     desktopRightBtn.disabled = !enable;
+    guangdongLiveBtn.disabled = !enable;
     muteBtn.disabled = !enable;
     toggleHdrBtn.disabled = !enable; // 添加HDR按钮
 
@@ -627,6 +629,16 @@ document.addEventListener('DOMContentLoaded', function () {
       statusText.textContent = 'WebSocket未连接，无法切换桌面';
     }
   });
+  
+  guangdongLiveBtn.addEventListener('click', function () {
+    if (socket && socket.connected) {
+      socket.emit('switch_guangdong_live');
+      statusText.textContent = '切换到电影桌面';
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法切换桌面';
+    }
+  });
+
 
   // 桌面切换 - 电视
   desktopRightBtn.addEventListener('click', function () {
