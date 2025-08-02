@@ -1095,18 +1095,50 @@
             } else {
               // 上/下方向键: 切换央视频道 (1-17)
               const currentUrl = window.location.href;
-              const match = currentUrl.match(/\/live\/cctv(\d+)/);
 
+              // 处理CCTV-14少儿频道的特殊情况
+              if (currentUrl.includes('/live/cctvchild/')) {
+                let nextChannel;
+                if (key === 'arrowdown') {
+                  // 下键: 切换到下一个频道 (CCTV-15)
+                  nextChannel = 15;
+                } else { // arrowup
+                  // 上键: 切换到上一个频道 (CCTV-13)
+                  nextChannel = 13;
+                }
+                const newUrl = `https://tv.cctv.com/live/cctv${nextChannel}/`;
+                window.location.href = newUrl;
+                return;
+              }
+
+              // 处理其他频道的正常情况
+              const match = currentUrl.match(/\/live\/cctv(\d+)/);
               if (match) {
                 let currentChannel = parseInt(match[1]);
                 let nextChannel;
 
                 if (key === 'arrowdown') {
                   // 下键: 切换到下一个频道
-                  nextChannel = currentChannel >= 17 ? 1 : currentChannel + 1;
+                  if (currentChannel === 13) {
+                    // 从CCTV-13切换到CCTV-14少儿频道
+                    nextChannel = 'child';
+                  } else if (currentChannel === 15) {
+                    // 从CCTV-15切换到CCTV-16
+                    nextChannel = 16;
+                  } else {
+                    nextChannel = currentChannel >= 17 ? 1 : currentChannel + 1;
+                  }
                 } else { // arrowup
                   // 上键: 切换到上一个频道
-                  nextChannel = currentChannel <= 1 ? 17 : currentChannel - 1;
+                  if (currentChannel === 15) {
+                    // 从CCTV-15切换到CCTV-14少儿频道
+                    nextChannel = 'child';
+                  } else if (currentChannel === 13) {
+                    // 从CCTV-13切换到CCTV-12
+                    nextChannel = 12;
+                  } else {
+                    nextChannel = currentChannel <= 1 ? 17 : currentChannel - 1;
+                  }
                 }
 
                 // 跳转到新的频道页面
