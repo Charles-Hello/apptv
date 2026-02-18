@@ -1736,8 +1736,277 @@ footer {
     }
 }
 
-/* 导航控制区 - 左侧 */
-.nav-controls-side {
+/* B站相关样式 */
+.bilibili-mode-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--apple-dark-border);
+    margin-top: 15px;
+}
+
+.bilibili-mode-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--apple-dark-text-secondary);
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #48484a;
+    border-radius: 28px;
+    transition: 0.3s;
+}
+
+.toggle-slider::before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #fb7299;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(22px);
+}
+
+/* B站搜索框样式 */
+.bilibili-search-container {
+    padding: 12px 0;
+    border-top: 1px solid var(--apple-dark-border);
+    margin-top: 10px;
+}
+
+.search-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.bilibili-search-input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid var(--apple-dark-border);
+    border-radius: 10px;
+    background: rgba(58, 58, 60, 0.6);
+    color: var(--apple-dark-text);
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.bilibili-search-input::placeholder {
+    color: var(--apple-dark-text-secondary);
+}
+
+.bilibili-search-input:focus {
+    border-color: #fb7299;
+    background: rgba(58, 58, 60, 0.8);
+    box-shadow: 0 0 0 3px rgba(251, 114, 153, 0.2);
+}
+
+.bilibili-search-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bilibili-search-btn {
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    background: #fb7299;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bilibili-search-btn:hover:not(:disabled) {
+    background: rgba(251, 114, 153, 0.8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(251, 114, 153, 0.3);
+}
+
+.bilibili-search-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(251, 114, 153, 0.2);
+}
+
+.bilibili-search-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 搜索历史 */
+.search-history-container {
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(251, 114, 153, 0.2);
+}
+
+.search-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.search-history-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fb7299;
+}
+
+.clear-history-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: rgba(251, 114, 153, 0.1);
+    border: 1px solid rgba(251, 114, 153, 0.3);
+    border-radius: 6px;
+    color: #fb7299;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.clear-history-btn:hover {
+    background: rgba(251, 114, 153, 0.2);
+    border-color: #fb7299;
+}
+
+.search-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.search-history-item {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.search-history-item i {
+    color: #fb7299;
+    font-size: 12px;
+}
+
+.search-history-item:hover {
+    background: rgba(251, 114, 153, 0.15);
+    border-color: rgba(251, 114, 153, 0.4);
+    transform: translateX(4px);
+}
+
+.history-pagination {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.history-page-btn {
+    padding: 6px 10px;
+    background: rgba(251, 114, 153, 0.1);
+    border: 1px solid rgba(251, 114, 153, 0.3);
+    border-radius: 6px;
+    color: #fb7299;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.history-page-btn:hover:not(:disabled) {
+    background: rgba(251, 114, 153, 0.2);
+    border-color: #fb7299;
+}
+
+.history-page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.history-page-info {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    min-width: 40px;
+    text-align: center;
+}
+
+.btn-bilibili {
+    background: #fb7299;
+    margin-top: 10px;
+}
+
+.btn-bilibili:hover:not(:disabled) {
+    background: rgba(251, 114, 153, 0.8);
+}
+
+.btn-bilibili:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* B站模式下空格按钮变为点击手势按钮 */
+.bilibili-mode-active #space-btn #space-icon {
+    display: none;
+}
+
+.bilibili-mode-active #space-btn #tap-icon {
+    display: inline !important;
+}
+
+/* B站模式下显示首页按钮 */
+.bilibili-mode-active #back-btn {
+    display: inline-flex !important;
+}
+}
+
     flex: 1;
     display: flex;
     justify-content: center;

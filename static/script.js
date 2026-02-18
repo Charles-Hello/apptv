@@ -65,8 +65,21 @@ document.addEventListener('DOMContentLoaded', function () {
   const arrowRightBtn = document.getElementById('arrow-right-btn');
   const fKeyBtn = document.getElementById('f-key-btn');
   const spaceBtn = document.getElementById('space-btn');
+  const backBtn = document.getElementById('back-btn');
   const cctvliveBtn = document.getElementById('switch_cctv_live');
   const guangdongLiveBtn = document.getElementById('guangdong-live-btn');
+  const bilibiliBtn = document.getElementById('bilibili-btn');
+  const bilibiliModeToggle = document.getElementById('bilibili-mode-toggle');
+  const bilibiliSearchContainer = document.getElementById('bilibili-search-container');
+  const bilibiliSearchInput = document.getElementById('bilibili-search-input');
+  const bilibiliSearchBtn = document.getElementById('bilibili-search-btn');
+  const searchHistoryContainer = document.getElementById('search-history-container');
+  const searchHistoryList = document.getElementById('search-history-list');
+  const clearHistoryBtn = document.getElementById('clear-history-btn');
+  const historyPrevBtn = document.getElementById('history-prev-btn');
+  const historyNextBtn = document.getElementById('history-next-btn');
+  const historyPageInfo = document.getElementById('history-page-info');
+  const historyPagination = document.getElementById('history-pagination');
   const volumeDownBtn = document.getElementById('volume-down-btn');
   const volumeUpBtn = document.getElementById('volume-up-btn');
 
@@ -89,6 +102,143 @@ document.addEventListener('DOMContentLoaded', function () {
   let socket = null;
   let isConnected = false;
   let isMuted = false; // 添加静音状态标志
+  let isBilibiliMode = false; // B站模式状态
+
+  // 搜索历史管理
+  const SEARCH_HISTORY_KEY = 'bilibili_search_history';
+  const ITEMS_PER_PAGE = 3;
+  let currentHistoryPage = 1;
+
+  // 获取搜索历史
+  function getSearchHistory() {
+    try {
+      const history = localStorage.getItem(SEARCH_HISTORY_KEY);
+      return history ? JSON.parse(history) : [];
+    } catch (e) {
+      console.error('读取搜索历史失败:', e);
+      return [];
+    }
+  }
+
+  // 保存搜索历史
+  function saveSearchHistory(history) {
+    try {
+      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {
+      console.error('保存搜索历史失败:', e);
+    }
+  }
+
+  // 添加搜索记录
+  function addSearchHistory(keyword) {
+    if (!keyword || !keyword.trim()) return;
+
+    let history = getSearchHistory();
+
+    // 移除重复项（如果存在）
+    history = history.filter(item => item !== keyword);
+
+    // 添加到开头
+    history.unshift(keyword);
+
+    // 保存所有历史（不限制数量）
+    saveSearchHistory(history);
+
+    // 重置到第一页
+    currentHistoryPage = 1;
+
+    // 更新显示
+    renderSearchHistory();
+  }
+
+  // 清空搜索历史
+  function clearSearchHistory() {
+    localStorage.removeItem(SEARCH_HISTORY_KEY);
+    currentHistoryPage = 1;
+    renderSearchHistory();
+    statusText.textContent = '搜索历史已清空';
+  }
+
+  // 渲染搜索历史
+  function renderSearchHistory() {
+    if (!searchHistoryList) return;
+
+    const history = getSearchHistory();
+
+    // 如果没有历史记录，隐藏容器
+    if (history.length === 0) {
+      if (searchHistoryContainer) {
+        searchHistoryContainer.style.display = 'none';
+      }
+      return;
+    }
+
+    // 显示容器
+    if (searchHistoryContainer) {
+      searchHistoryContainer.style.display = 'block';
+    }
+
+    // 计算分页
+    const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
+    const startIndex = (currentHistoryPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const pageHistory = history.slice(startIndex, endIndex);
+
+    // 清空列表
+    searchHistoryList.innerHTML = '';
+
+    // 渲染当前页的历史记录
+    pageHistory.forEach(keyword => {
+      const item = document.createElement('div');
+      item.className = 'search-history-item';
+      item.innerHTML = `<i class="fas fa-history"></i><span>${keyword}</span>`;
+      item.addEventListener('click', function() {
+        if (bilibiliSearchInput) {
+          bilibiliSearchInput.value = keyword;
+        }
+        // 直接触发搜索
+        performSearch(keyword);
+      });
+      searchHistoryList.appendChild(item);
+    });
+
+    // 更新分页控制
+    if (historyPagination && totalPages > 1) {
+      historyPagination.style.display = 'flex';
+      if (historyPageInfo) {
+        historyPageInfo.textContent = `${currentHistoryPage}/${totalPages}`;
+      }
+      if (historyPrevBtn) {
+        historyPrevBtn.disabled = currentHistoryPage === 1;
+      }
+      if (historyNextBtn) {
+        historyNextBtn.disabled = currentHistoryPage === totalPages;
+      }
+    } else {
+      if (historyPagination) {
+        historyPagination.style.display = 'none';
+      }
+    }
+  }
+
+  // 执行搜索（提取为独立函数）
+  function performSearch(keyword) {
+    if (!keyword || !keyword.trim()) {
+      statusText.textContent = '请输入搜索关键词';
+      return;
+    }
+
+    if (socket && socket.connected) {
+      console.log('发送B站搜索请求:', keyword);
+      socket.emit('bilibili_search', { keyword: keyword });
+      statusText.textContent = `搜索: ${keyword}`;
+
+      // 添加到搜索历史
+      addSearchHistory(keyword);
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法搜索';
+    }
+  }
 
 
   // 更新连接状态指示器
@@ -124,12 +274,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (arrowRightBtn) arrowRightBtn.disabled = !enable;
     if (fKeyBtn) fKeyBtn.disabled = !enable;
     if (spaceBtn) spaceBtn.disabled = !enable;
+    if (backBtn) backBtn.disabled = !enable;
     if (volumeDownBtn) volumeDownBtn.disabled = !enable;
     if (volumeUpBtn) volumeUpBtn.disabled = !enable;
     if (cctvliveBtn) cctvliveBtn.disabled = !enable;
     if (guangdongLiveBtn) guangdongLiveBtn.disabled = !enable;
+    if (bilibiliBtn) bilibiliBtn.disabled = !enable;
+    if (bilibiliSearchInput) bilibiliSearchInput.disabled = !enable;
+    if (bilibiliSearchBtn) bilibiliSearchBtn.disabled = !enable;
     if (muteBtn) muteBtn.disabled = !enable;
-    if (toggleHdrBtn) toggleHdrBtn.disabled = !enable; // 添加HDR按钮 
+    if (toggleHdrBtn) toggleHdrBtn.disabled = !enable; // 添加HDR按钮
 
     // 唤醒按钮不再根据唤醒状态禁用，只根据连接状态
     if (wakeScreenBtn) wakeScreenBtn.disabled = !enable;
@@ -345,6 +499,20 @@ document.addEventListener('DOMContentLoaded', function () {
           statusText.textContent = data.message;
         } else {
           statusText.textContent = `HDR切换失败: ${data.message || '未知错误'}`;
+        }
+      });
+
+      // B站搜索响应
+      socket.on('bilibili_search_response', function (data) {
+        console.log('收到B站搜索响应:', data);
+        if (data.success) {
+          statusText.textContent = data.message || `B站搜索成功: ${data.keyword}`;
+          // 清空搜索框
+          if (bilibiliSearchInput) {
+            bilibiliSearchInput.value = '';
+          }
+        } else {
+          statusText.textContent = `B站搜索失败: ${data.message || '未知错误'}`;
         }
       });
 
@@ -587,14 +755,36 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 空格键
+  // 空格键/Enter键（根据B站模式切换）
   if (spaceBtn) {
     spaceBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('play_pause');
-        statusText.textContent = '发送空格键命令';
+        if (isBilibiliMode) {
+          // B站模式：发送 Enter 键
+          socket.emit('key_press', { direction: 'enter' });
+          statusText.textContent = '发送Enter键命令';
+        } else {
+          // 普通模式：发送空格键
+          socket.emit('play_pause');
+          statusText.textContent = '发送空格键命令';
+        }
       } else {
         statusText.textContent = 'WebSocket未连接，无法发送命令';
+      }
+    });
+  }
+
+  // B站首页按钮
+  if (backBtn) {
+    backBtn.addEventListener('click', function () {
+      console.log('首页按钮被点击');
+      if (socket && socket.connected) {
+        console.log('发送 bilibili_home 事件到服务器');
+        socket.emit('bilibili_home');
+        statusText.textContent = '跳转B站首页';
+      } else {
+        console.log('WebSocket未连接');
+        statusText.textContent = 'WebSocket未连接，无法跳转';
       }
     });
   }
@@ -666,6 +856,109 @@ document.addEventListener('DOMContentLoaded', function () {
         statusText.textContent = '切换到电影桌面';
       } else {
         statusText.textContent = 'WebSocket未连接，无法切换桌面';
+      }
+    });
+  }
+
+  // 哔哩哔哩按钮
+  if (bilibiliBtn) {
+    bilibiliBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('switch_bilibili');
+        statusText.textContent = '切换到哔哩哔哩';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法切换';
+      }
+    });
+  }
+
+  // B站模式开关
+  if (bilibiliModeToggle) {
+    bilibiliModeToggle.addEventListener('change', function () {
+      isBilibiliMode = this.checked;
+      const controlsCard = document.querySelector('.controls-card');
+
+      if (isBilibiliMode) {
+        controlsCard && controlsCard.classList.add('bilibili-mode-active');
+        // 显示搜索框
+        if (bilibiliSearchContainer) {
+          bilibiliSearchContainer.style.display = 'block';
+        }
+        // 显示首页按钮
+        if (backBtn) {
+          backBtn.style.display = 'inline-flex';
+        }
+        // 更新空格按钮的 aria-label
+        if (spaceBtn) {
+          spaceBtn.setAttribute('aria-label', 'Enter键');
+        }
+        statusText.textContent = 'B站模式已开启';
+
+        // 加载搜索历史
+        renderSearchHistory();
+      } else {
+        controlsCard && controlsCard.classList.remove('bilibili-mode-active');
+        // 隐藏搜索框
+        if (bilibiliSearchContainer) {
+          bilibiliSearchContainer.style.display = 'none';
+        }
+        // 隐藏首页按钮
+        if (backBtn) {
+          backBtn.style.display = 'none';
+        }
+        // 恢复空格按钮的 aria-label
+        if (spaceBtn) {
+          spaceBtn.setAttribute('aria-label', '空格键');
+        }
+        statusText.textContent = 'B站模式已关闭';
+      }
+    });
+  }
+
+  // B站搜索按钮
+  if (bilibiliSearchBtn) {
+    bilibiliSearchBtn.addEventListener('click', function () {
+      const keyword = bilibiliSearchInput ? bilibiliSearchInput.value.trim() : '';
+      performSearch(keyword);
+    });
+  }
+
+  // 支持搜索框回车键
+  if (bilibiliSearchInput) {
+    bilibiliSearchInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        const keyword = bilibiliSearchInput.value.trim();
+        performSearch(keyword);
+      }
+    });
+  }
+
+  // 清空搜索历史按钮
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', function() {
+      if (confirm('确定要清空所有搜索历史吗？')) {
+        clearSearchHistory();
+      }
+    });
+  }
+
+  // 历史记录翻页按钮
+  if (historyPrevBtn) {
+    historyPrevBtn.addEventListener('click', function() {
+      if (currentHistoryPage > 1) {
+        currentHistoryPage--;
+        renderSearchHistory();
+      }
+    });
+  }
+
+  if (historyNextBtn) {
+    historyNextBtn.addEventListener('click', function() {
+      const history = getSearchHistory();
+      const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
+      if (currentHistoryPage < totalPages) {
+        currentHistoryPage++;
+        renderSearchHistory();
       }
     });
   }

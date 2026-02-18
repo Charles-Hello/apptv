@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>油猴插件 - 二维码测试</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .qrcode-wrapper {
+      display: inline-block;
+      padding: 20px;
+      background: white;
+      border: 2px solid #3a75c4;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .log {
+      background: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+    }
+    .log-success { color: #006600; }
+    .log-error { color: #cc0000; }
+    .log-warn { color: #ff6600; }
+    .log-info { color: #0055aa; }
+    button {
+      background: #3a75c4;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 10px 5px 10px 0;
+    }
+    button:hover {
+      background: #2a5594;
+    }
+    .status {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 油猴插件二维码测试</h1>
+
+    <div>
+      <button onclick="testFetchIP()">测试获取IP</button>
+      <button onclick="generateQR()">生成二维码</button>
+      <button onclick="clearLog()">清空日志</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div style="margin-top: 20px;">
+      <h3>二维码显示区：</h3>
+      <div id="qrcode-holder" class="qrcode-wrapper"></div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-info">📝 等待测试...</div>
+    </div>
+  </div>
+
+  <script>
+    function addLog(message, type = 'info') {
+      const log = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('log').innerHTML = '<div class="log-info">📝 日志已清空</div>';
+    }
+
+    function setStatus(message, success) {
+      const status = document.getElementById('status');
+      status.className = `status status-${success ? 'success' : 'error'}`;
+      status.textContent = message;
+    }
+
+    async function testFetchIP() {
+      addLog('======== 开始测试获取IP ========', 'info');
+
+      try {
+        addLog('尝试从服务器获取IP: http://localhost:5003/get-local-ip', 'info');
+
+        const response = await fetch('http://localhost:5003/get-local-ip', {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-cache'
+        });
+
+        addLog(`服务器响应状态: ${response.status}`, response.ok ? 'success' : 'error');
+
+        if (response.ok) {
+          const data = await response.json();
+          addLog(`服务器返回数据: ${JSON.stringify(data, null, 2)}`, 'success');
+
+          if (data.success && data.ip) {
+            addLog(`✓ 成功获取到本机IP: ${data.ip}`, 'success');
+            setStatus(`✓ IP获取成功: ${data.ip}`, true);
+            return data.ip;
+          } else {
+            addLog('✗ 服务器返回数据格式不正确', 'error');
+            setStatus('✗ 数据格式错误', false);
+          }
+        } else {
+          addLog(`✗ 服务器响应状态异常: ${response.status}`, 'error');
+          setStatus(`✗ 服务器错误: ${response.status}`, false);
+        }
+      } catch (e) {
+        addLog(`✗ 请求失败: ${e.message}`, 'error');
+        setStatus(`✗ 请求失败: ${e.message}`, false);
+      }
+
+      addLog('======== 测试结束 ========', 'info');
+      return 'localhost';
+    }
+
+    async function generateQR() {
+      const qrcodeHolder = document.getElementById('qrcode-holder');
+      qrcodeHolder.innerHTML = '<p style="color: #666; margin: 20px 0;">正在获取本机IP...</p>';
+
+      addLog('======== 开始生成二维码 ========', 'info');
+
+      const ip = await testFetchIP();
+      const controlUrl = `http://${ip}:5003`;
+
+      addLog(`生成二维码URL: ${controlUrl}`, 'info');
+
+      qrcodeHolder.innerHTML = '';
+
+      try {
+        new QRCode(qrcodeHolder, {
+          text: controlUrl,
+          width: 180,
+          height: 180,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        const urlText = document.createElement('p');
+        urlText.style.cssText = 'margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;';
+        urlText.textContent = controlUrl;
+        qrcodeHolder.appendChild(urlText);
+
+        addLog('✓ 二维码生成成功', 'success');
+        setStatus('✓ 二维码生成成功', true);
+      } catch (error) {
+        addLog(`✗ 二维码生成失败: ${error.message}`, 'error');
+        qrcodeHolder.innerHTML = '<p style="color: #cc0000;">二维码生成失败</p>';
+        setStatus('✗ 二维码生成失败', false);
+      }
+
+      addLog('======== 生成完成 ========', 'info');
+    }
+
+    // 页面加载完成后自动测试
+    window.addEventListener('load', () => {
+      addLog('页面已加载，点击按钮开始测试', 'info');
+    });
+  </script>
+</body>
+</html>

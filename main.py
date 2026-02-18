@@ -7,6 +7,7 @@ import datetime
 import asyncio
 import websockets
 import requests
+import socket
 from 测试.focus_app import focus_app
 from cafe import sleep_mac, set_wake_time, setup_passwordless_sudo
 
@@ -36,6 +37,105 @@ first_user_wake_date = None
 hdr_status = {
     "is_on": False
 }
+
+# 获取本机局域网IP地址
+def get_local_ip():
+    """
+    获取本机局域网IP地址
+    优先返回192.168.x.x网段的IP（家庭/办公室局域网）
+    """
+    try:
+        # 方法1：使用ipconfig命令获取主网卡IP（macOS最可靠的方法）
+        # en0 通常是WiFi或以太网主接口
+        try:
+            result = subprocess.run(
+                ['ipconfig', 'getifaddr', 'en0'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                ip = result.stdout.strip()
+                # 验证是否是局域网IP
+                if ip.startswith('192.168.') or ip.startswith('10.') or ip.startswith('172.'):
+                    print(f"获取到本机IP（en0）: {ip}")
+                    return ip
+        except Exception as e:
+            print(f"获取en0 IP失败: {e}")
+
+        # 尝试en1接口
+        try:
+            result = subprocess.run(
+                ['ipconfig', 'getifaddr', 'en1'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                ip = result.stdout.strip()
+                if ip.startswith('192.168.') or ip.startswith('10.') or ip.startswith('172.'):
+                    print(f"获取到本机IP（en1）: {ip}")
+                    return ip
+        except Exception as e:
+            print(f"获取en1 IP失败: {e}")
+
+        # 方法2：解析ifconfig输出，优先选择192.168开头的IP
+        try:
+            result = subprocess.run(
+                ['ifconfig'],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            if result.returncode == 0:
+                import re
+                # 查找所有 inet xxx.xxx.xxx.xxx
+                inet_pattern = re.compile(r'inet\s+(\d+\.\d+\.\d+\.\d+)')
+                all_ips = inet_pattern.findall(result.stdout)
+
+                # 优先返回192.168开头的
+                for ip in all_ips:
+                    if ip.startswith('192.168.') and ip != '127.0.0.1':
+                        print(f"获取到本机IP（ifconfig-192.168）: {ip}")
+                        return ip
+
+                # 其次返回10开头的
+                for ip in all_ips:
+                    if ip.startswith('10.') and ip != '127.0.0.1':
+                        print(f"获取到本机IP（ifconfig-10.x）: {ip}")
+                        return ip
+
+                # 最后返回172.16-31开头的
+                for ip in all_ips:
+                    if ip.startswith('172.') and ip != '127.0.0.1':
+                        octets = ip.split('.')
+                        if len(octets) == 4 and 16 <= int(octets[1]) <= 31:
+                            print(f"获取到本机IP（ifconfig-172.x）: {ip}")
+                            return ip
+        except Exception as e:
+            print(f"解析ifconfig输出失败: {e}")
+
+        # 方法3：通过socket连接外部地址（备用）
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('8.8.8.8', 80))
+            ip = s.getsockname()[0]
+            s.close()
+            # 只接受局域网IP
+            if ip.startswith('192.168.') or ip.startswith('10.') or ip.startswith('172.'):
+                print(f"获取到本机IP（socket）: {ip}")
+                return ip
+            else:
+                print(f"socket方法获取到非局域网IP，跳过: {ip}")
+        except Exception:
+            s.close()
+
+    except Exception as e:
+        print(f"获取本机IP失败: {e}")
+
+    # 如果所有方法都失败，返回localhost
+    print("所有方法都失败，返回localhost")
+    return 'localhost'
 
 # ESP32 WebSocket客户端功能
 async def send_key_to_esp32(key_code):
@@ -95,9 +195,10 @@ def press_key(key):
         "left": 123,  # 左箭头
         "right": 124, # 右箭头
         "space": 49,  # 空格键
-        "f": 3        # f 键
+        "f": 3,       # f 键
+        "enter": 36   # Enter 键（回车键）
     }
-    
+
     if key in key_codes:
         cmd = f"osascript -e 'tell application \"System Events\" to key code {key_codes[key]}'"
         subprocess.run(cmd, shell=True)
@@ -314,13 +415,13 @@ def handle_disconnect():
 def handle_key_press(data):
     """处理按键请求"""
     direction = data.get('direction')
-    if direction not in ['up', 'down', 'left', 'right', 'f']:
-        emit('error', {"error": "无效的按键，请使用 'up'、'down'、'left'、'right' 或 'f'"})
+    if direction not in ['up', 'down', 'left', 'right', 'f', 'enter']:
+        emit('error', {"error": "无效的按键，请使用 'up'、'down'、'left'、'right'、'f' 或 'enter'"})
         return
-    
+
     success = press_key(direction)
     emit('key_press_response', {
-        "success": success, 
+        "success": success,
         "direction": direction
     })
 
@@ -448,8 +549,8 @@ def handle_switch_desktop():
     socketio.emit('open_url_command', {
                   "url": 'https://www.gdtv.cn/tvChannelDetail/45',
                   "timestamp": int(__import__('time').time())
-              })    
-       
+              })
+
 @socketio.on('switch_cctv_live')
 def handle_switch_desktop():
     """处理桌面切换请求"""
@@ -458,7 +559,56 @@ def handle_switch_desktop():
     socketio.emit('open_url_command', {
                   "url": 'https://tv.cctv.com/live/cctv13/',
                   "timestamp": int(__import__('time').time())
-              })   
+              })
+
+@socketio.on('switch_bilibili')
+def handle_switch_bilibili():
+    """处理切换到哔哩哔哩的请求"""
+    press_key("space")
+    focus_app("Google Chrome")
+    socketio.emit('open_url_command', {
+                  "url": 'https://www.bilibili.com/',
+                  "timestamp": int(__import__('time').time())
+              })
+
+@socketio.on('bilibili_search')
+def handle_bilibili_search(data):
+    """处理B站搜索请求"""
+    keyword = data.get('keyword', '').strip()
+
+    if not keyword:
+        emit('error', {"error": "搜索关键词不能为空"})
+        return
+
+    print(f"收到B站搜索请求，关键词: {keyword}")
+
+    # 广播搜索命令给所有客户端（油猴插件）
+    socketio.emit('bilibili_search_command', {
+        "keyword": keyword,
+        "timestamp": int(__import__('time').time())
+    })
+
+    emit('bilibili_search_response', {
+        "success": True,
+        "keyword": keyword,
+        "message": f"B站搜索命令已发送: {keyword}"
+    })
+
+@socketio.on('bilibili_home')
+def handle_bilibili_home():
+    """处理B站首页请求"""
+    print("收到B站首页请求")
+
+    # 广播首页命令给所有客户端（油猴插件）
+    socketio.emit('bilibili_home_command', {
+        "url": "https://www.bilibili.com/",
+        "timestamp": int(__import__('time').time())
+    })
+
+    emit('bilibili_home_response', {
+        "success": True,
+        "message": "已发送B站首页命令"
+    })
 
 @socketio.on('wake_screen')
 def handle_wake_screen(data):
@@ -714,6 +864,22 @@ def get_hdr_status_http():
         "is_on": hdr_status["is_on"]
     })
 
+# 获取本机局域网IP的HTTP接口
+@app.route('/get-local-ip', methods=['GET'])
+def get_local_ip_http():
+    """获取本机局域网IP地址"""
+    local_ip = get_local_ip()
+    response = jsonify({
+        "success": True,
+        "ip": local_ip,
+        "url": f"http://{local_ip}:5003"
+    })
+    # 添加 CORS 响应头，允许油猴脚本访问
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    return response
+
 # 添加HTTP路由处理快速睡眠唤醒
 @app.route('/quick-sleep-wake', methods=['GET'])
 def quick_sleep_wake_http():
@@ -749,4 +915,10 @@ def quick_sleep_http():
         }), 500
 
 if __name__ == '__main__':
+    # 获取并打印本机IP
+    local_ip = get_local_ip()
+    print("=" * 60)
+    print(f"本机局域网IP: {local_ip}")
+    print(f"遥控器访问地址: http://{local_ip}:5003")
+    print("=" * 60)
     socketio.run(app, host='0.0.0.0', port=5003, debug=True)

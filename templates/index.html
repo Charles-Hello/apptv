@@ -115,11 +115,71 @@
               <button id="play-pause-btn" class="media-button" disabled aria-label="播放/暂停">
                 <i class="fas fa-play"></i>
               </button>
-              <!-- 空格按钮 -->
+              <!-- 空格/Enter按钮 -->
               <button id="space-btn" class="media-button" disabled aria-label="空格键">
-                <svg width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- 默认显示空格键图标 -->
+                <svg id="space-icon" width="24" height="14" viewBox="0 0 24 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="1" y="1" width="22" height="12" rx="3" stroke="white" stroke-width="2" />
                 </svg>
+                <!-- B站模式显示点击手势图标 -->
+                <svg id="tap-icon" style="display: none;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M13 5C13 3.34315 11.6569 2 10 2C8.34315 2 7 3.34315 7 5V11.5858L5.70711 10.2929C4.92893 9.51472 3.67157 9.51472 2.89339 10.2929C2.11521 11.0711 2.11521 12.3284 2.89339 13.1066L8.08579 18.2929C9.24021 19.4473 10.8097 20.0858 12.4426 20.0858H15.5C18.5376 20.0858 21 17.6235 21 14.5858V10C21 8.34315 19.6569 7 18 7C16.3431 7 15 8.34315 15 10V5C15 3.34315 13.6569 2 12 2C10.3431 2 9 3.34315 9 5V9.58579M13 5V10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <!-- 首页按钮 -->
+              <button id="back-btn" class="media-button" style="display: none;" disabled aria-label="B站首页">
+                <i class="fas fa-home"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- B站模式开关 -->
+        <div class="bilibili-mode-row">
+          <span class="bilibili-mode-label">B站模式</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bilibili-mode-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- B站搜索输入框 - 仅在B站模式开启时显示 -->
+<div id="bilibili-search-container" class="bilibili-search-container" style="display: none;">
+          <div class="search-input-group">
+            <input
+              type="text"
+              id="bilibili-search-input"
+              class="bilibili-search-input"
+              placeholder="输入搜索关键词..."
+              disabled
+            >
+            <button
+              id="bilibili-search-btn"
+              class="bilibili-search-btn"
+              disabled
+            >
+              <i class="fas fa-search"></i> 搜索
+            </button>
+          </div>
+
+          <!-- 搜索历史 -->
+          <div id="search-history-container" class="search-history-container" style="display: none;">
+            <div class="search-history-header">
+              <span class="search-history-title">搜索历史</span>
+              <button id="clear-history-btn" class="clear-history-btn">
+                <i class="fas fa-trash-alt"></i> 清空
+              </button>
+            </div>
+            <div id="search-history-list" class="search-history-list">
+              <!-- 历史记录将通过JavaScript动态添加 -->
+            </div>
+            <div id="history-pagination" class="history-pagination" style="display: none;">
+              <button id="history-prev-btn" class="history-page-btn" disabled>
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span id="history-page-info" class="history-page-info">1/1</span>
+              <button id="history-next-btn" class="history-page-btn" disabled>
+                <i class="fas fa-chevron-right"></i>
               </button>
             </div>
           </div>
@@ -135,6 +195,9 @@
               <i class="fas fa-tv"></i> 广东直播
             </button>
           </div>
+          <button id="bilibili-btn" class="btn btn-bilibili" disabled>
+            <i class="fas fa-play-circle"></i> 哔哩哔哩
+          </button>
         </div>
       </div>
 

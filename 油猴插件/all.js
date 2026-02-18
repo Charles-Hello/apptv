@@ -1,18 +1,20 @@
 // ==UserScript==
 // @name         电影+广东浏览器远程控制 - 链接接收器
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.2.0
 // @description  通过WebSocket连接到本地服务器，接收并打开视频链接，自动全屏视频，支持远程视频控制，支持央视直播频道切换
 // @author       You
 // @match        *://*/*
 // @match        https://movie.tnanko.top/*
 // @match        https://www.gdtv.cn/*
 // @match        https://tv.cctv.com/live/cctv*
+// @match        https://www.bilibili.com/*
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
 // @connect      cdn.socket.io
 // @connect      192.168.1.115
 // @require      https://cdn.socket.io/4.6.0/socket.io.min.js
+// @require      https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js
 // ==/UserScript==
 
 
@@ -35,7 +37,12 @@
   let wsHeartbeatInterval = 30000; // 心跳检测间隔30秒
 
   // 检查是否在目标网站上
-  const isTargetWebsite = /movie\.tnanko\.top|www\.gdtv\.cn|tv\.cctv\.com/.test(window.location.href);
+  const isTargetWebsite = /movie\.tnanko\.top|www\.gdtv\.cn|tv\.cctv\.com|bilibili\.com/.test(window.location.href);
+
+  console.log('=== 油猴脚本启动 ===');
+  console.log('当前URL:', window.location.href);
+  console.log('是否在目标网站:', isTargetWebsite);
+  console.log('==================');
 
   fetch('https://tv.tnanko.top/send-esp32-key?key_code=F')
     .then(response => {
@@ -49,7 +56,7 @@
       console.error('发送F键指令时发生错误', err);
     });
 
-  // 创建控制面板
+  // 创建简化的控制面板（只显示二维码）
   createControlPanel();
 
   // WebSocket功能只在目标网站上启用
@@ -107,7 +114,7 @@
 
 
 
-  
+
   // 等待视频元素出现
   function waitForVideoElement() {
     const observer = new MutationObserver(function (mutations) {
@@ -225,6 +232,39 @@
       text: `执行命令: ${action}`,
       timeout: 3000
     });
+  }
+
+  // 处理B站搜索命令
+  function handleBilibiliSearch(keyword) {
+    console.log('处理B站搜索命令, 关键词:', keyword);
+
+    if (!keyword || keyword.trim() === '') {
+      console.warn('搜索关键词为空');
+      return;
+    }
+
+    try {
+      // 构建B站搜索URL（使用 bilibili.com 的搜索参数格式）
+      const searchUrl = `https://www.bilibili.com/?page=SearchResults&keyword=${encodeURIComponent(keyword.trim())}`;
+      console.log('即将跳转到:', searchUrl);
+
+      // 显示通知
+      GM_notification({
+        title: 'B站搜索',
+        text: `正在搜索: ${keyword}`,
+        timeout: 3000
+      });
+
+      // 在当前页面跳转
+      window.location.href = searchUrl;
+    } catch (e) {
+      console.error('处理B站搜索失败:', e);
+      GM_notification({
+        title: 'B站搜索失败',
+        text: e.message,
+        timeout: 3000
+      });
+    }
   }
 
   // 连接WebSocket
@@ -383,6 +423,31 @@
         handleVideoControl(data.action);
       });
 
+      // 处理B站搜索命令
+      socket.on('bilibili_search_command', function (data) {
+        console.log('收到B站搜索命令:', data);
+        handleBilibiliSearch(data.keyword);
+      });
+
+      // 处理B站首页命令
+      socket.on('bilibili_home_command', function (data) {
+        console.log('收到B站首页命令:', data);
+        console.log('即将跳转到:', data.url);
+
+        // 显示通知
+        GM_notification({
+          title: 'B站首页',
+          text: '正在跳转到首页...',
+          timeout: 2000
+        });
+
+        // 执行跳转
+        setTimeout(() => {
+          window.location.href = data.url;
+          console.log('已执行跳转命令');
+        }, 100);
+      });
+
       // 处理ESP32按键响应
       socket.on('esp32_key_response', function (data) {
         console.log('收到ESP32按键响应:', data);
@@ -459,9 +524,6 @@
         // 在跳转前保存一个标记，用于识别是通过插件跳转的
         sessionStorage.setItem('urlReceived', 'true');
         sessionStorage.setItem('receivedUrl', url);
-
-        // 添加到历史记录
-        addToHistory(url);
 
         // 直接在当前窗口打开URL，而不是新标签页
         window.location.href = url;
@@ -573,7 +635,97 @@
     }
   }
 
-  // 创建控制面板
+  // 从 server 获取本机局域网IP
+  async function getLocalIP() {
+    console.log('[IP获取] 开始获取本机IP...');
+
+    try {
+      // 从本地 server 获取 IP
+      console.log('[IP获取] 尝试从服务器获取: http://localhost:5003/get-local-ip');
+      const response = await fetch('http://localhost:5003/get-local-ip', {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+
+      console.log('[IP获取] 服务器响应状态:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[IP获取] 服务器返回数据:', data);
+
+        if (data.success && data.ip) {
+          console.log('[IP获取] ✓ 从服务器获取到本机IP:', data.ip);
+          return data.ip;
+        } else {
+          console.warn('[IP获取] 服务器返回数据格式不正确');
+        }
+      } else {
+        console.warn('[IP获取] 服务器响应状态异常:', response.status);
+      }
+    } catch (e) {
+      console.error('[IP获取] ✗ 从服务器获取本机IP失败:', e.message);
+    }
+
+    console.log('[IP获取] 服务器方法失败，尝试WebRTC备用方案...');
+
+    // 如果服务器获取失败，尝试通过WebRTC获取本地IP（备用方案）
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel('');
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      return new Promise((resolve) => {
+        let ipFound = false;
+
+        pc.onicecandidate = (ice) => {
+          if (ipFound) return;
+
+          if (!ice || !ice.candidate || !ice.candidate.candidate) {
+            if (!ipFound) {
+              pc.close();
+              console.warn('[IP获取] WebRTC未找到候选地址，返回localhost');
+              resolve('localhost');
+            }
+            return;
+          }
+
+          const candidateStr = ice.candidate.candidate;
+          console.log('[IP获取] WebRTC候选地址:', candidateStr);
+
+          const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+          const ipMatch = ipRegex.exec(candidateStr);
+
+          if (ipMatch && ipMatch[1]) {
+            const ip = ipMatch[1];
+            // 过滤掉127.0.0.1，优先192.168开头的
+            if (ip !== '127.0.0.1' && !ipFound) {
+              ipFound = true;
+              pc.close();
+              console.log('[IP获取] ✓ 通过WebRTC获取到本机IP:', ip);
+              resolve(ip);
+              return;
+            }
+          }
+        };
+
+        // 5秒超时
+        setTimeout(() => {
+          if (!ipFound) {
+            pc.close();
+            console.warn('[IP获取] WebRTC超时，返回localhost');
+            resolve('localhost');
+          }
+        }, 5000);
+      });
+    } catch (e) {
+      console.error('[IP获取] ✗ WebRTC获取本地IP失败:', e.message);
+      return 'localhost';
+    }
+  }
+
+  // 创建简化的控制面板（只显示二维码）
   function createControlPanel() {
     const panel = document.createElement('div');
     panel.id = 'ws-control-panel';
@@ -584,227 +736,153 @@
     }
 
     panel.innerHTML = `
-              <div class="ws-header">远程链接接收器 <span class="ws-close-btn">&times;</span></div>
-              <div class="ws-body">
-                  <div class="ws-status-row">
-                      <span>连接状态:</span>
-                      <span id="ws-connection-status" class="status-disconnected">未连接</span>
-                      <button id="btn-reconnect" title="重新连接">🔄</button>
-                  </div>
-                  <div class="ws-info">
-                      <p>服务器地址: ${WS_URL}</p>
-                  </div>
-                  <div class="ws-controls">
-                      <button id="btn-play">播放</button>
-                      <button id="btn-pause">暂停</button>
-                      <button id="btn-key-f">按键F</button>
-                  </div>
-                  <div class="url-history">
-                      <h4>历史记录</h4>
-                      <ul id="history-list"></ul>
-                  </div>
-              </div>
-          `;
+      <div class="ws-header">
+        远程控制
+        <span class="ws-close-btn">&times;</span>
+      </div>
+      <div class="ws-body">
+        <div class="ws-status-row">
+          <span>连接状态:</span>
+          <span id="ws-connection-status" class="status-disconnected">未连接</span>
+          <button id="btn-reconnect" title="重新连接">🔄</button>
+        </div>
+        <div class="qr-container">
+          <h4>扫码打开遥控器</h4>
+          <div id="qrcode-holder" class="qrcode-wrapper"></div>
+          <p class="qr-hint">使用手机扫描二维码访问遥控器</p>
+        </div>
+      </div>
+    `;
 
     // 添加样式
     const style = document.createElement('style');
     style.textContent = `
-              #ws-control-panel {
-                  position: fixed;
-                  bottom: 20px;
-                  right: 20px;
-                  width: 280px;
-                  background: #ffffff;
-                  border: 1px solid #bbbbbb;
-                  border-radius: 8px;
-                  box-shadow: 0 0 10px rgba(0,0,0,0.3);
-                  z-index: 9999;
-                  font-family: Arial, sans-serif;
-                  transition: all 0.3s ease;
-                  font-size: 14px;
-                  color: #222222;
-              }
-              .ws-header {
-                  padding: 10px 12px;
-                  background: #3a75c4;
-                  color: white;
-                  font-weight: bold;
-                  border-radius: 8px 8px 0 0;
-                  display: flex;
-                  justify-content: space-between;
-                  font-size: 15px;
-              }
-              .ws-close-btn {
-                  cursor: pointer;
-                  font-size: 18px;
-                  color: white;
-              }
-              .ws-body {
-                  padding: 12px;
-                  background: #ffffff;
-                  color: #222222;
-                  border-radius: 0 0 8px 8px;
-              }
-              .ws-status-row {
-                  margin-bottom: 10px;
-                  display: flex;
-                  align-items: center;
-                  color: #222222;
-                  font-weight: 500;
-              }
-              .ws-status-row span:first-child {
-                  margin-right: 8px;
-                  font-weight: bold;
-                  width: 70px;
-                  color: #222222;
-              }
-              #btn-reconnect {
-                  margin-left: 8px;
-                  background: #f0f0f0;
-                  border: 1px solid #dddddd;
-                  border-radius: 50%;
-                  width: 24px;
-                  height: 24px;
-                  cursor: pointer;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  font-size: 14px;
-                  padding: 0;
-              }
-              #btn-reconnect:hover {
-                  background: #e0e0e0;
-              }
-              .status-connected {
-                  color: #006600;
-                  font-weight: bold;
-              }
-              .status-disconnected {
-                  color: #444444;
-                  font-weight: bold;
-              }
-              .status-error {
-                  color: #cc0000;
-                  font-weight: bold;
-              }
-              .status-reconnecting {
-                  color: #ff6600;
-                  font-weight: bold;
-              }
-              .ws-info {
-                  margin: 10px 0;
-                  font-size: 13px;
-                  background: #f0f0f0;
-                  padding: 10px;
-                  border-radius: 5px;
-                  color: #222222;
-                  border: 1px solid #dddddd;
-              }
-              .ws-info p {
-                  margin: 4px 0;
-                  color: #222222;
-                  font-weight: 500;
-              }
-              .ws-controls {
-                  display: flex;
-                  justify-content: space-between;
-                  margin: 10px 0;
-                  flex-wrap: wrap;
-                  gap: 5px;
-              }
-              .ws-controls button {
-                  flex: 1;
-                  min-width: 45%;
-                  margin: 0 0 5px 0;
-                  padding: 8px 0;
-                  border: none;
-                  border-radius: 4px;
-                  background: #3a75c4;
-                  color: white;
-                  font-weight: bold;
-                  cursor: pointer;
-              }
-              .ws-controls button:hover {
-                  background: #2a5594;
-              }
-              .url-history {
-                  margin-top: 12px;
-                  background: #f0f0f0;
-                  padding: 10px;
-                  border-radius: 5px;
-                  max-height: 150px;
-                  overflow-y: auto;
-                  border: 1px solid #dddddd;
-              }
-              .url-history h4 {
-                  margin: 0 0 10px 0;
-                  font-size: 14px;
-                  color: #222222;
-                  font-weight: bold;
-              }
-              #history-list {
-                  margin: 0;
-                  padding: 0;
-                  list-style: none;
-                  color: #222222;
-              }
-              #history-list li {
-                  padding: 6px 0;
-                  border-bottom: 1px solid #dddddd;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                  font-size: 13px;
-                  color: #222222;
-              }
-              #history-list li a {
-                  flex: 1;
-                  color: #0055aa;
-                  text-decoration: none;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                  white-space: nowrap;
-                  margin-right: 8px;
-                  font-weight: 500;
-              }
-              #history-list li a:hover {
-                  text-decoration: underline;
-                  color: #003377;
-              }
-              #history-list li button {
-                  background: #dddddd;
-                  border: none;
-                  border-radius: 4px;
-                  padding: 3px 8px;
-                  font-size: 12px;
-                  cursor: pointer;
-                  color: #222222;
-                  font-weight: 500;
-              }
-              #history-list li button:hover {
-                  background: #cccccc;
-              }
-              .ws-minimized {
-                  width: 45px;
-                  height: 45px;
-                  overflow: hidden;
-                  border-radius: 50%;
-              }
-              .ws-minimized .ws-body {
-                  display: none;
-              }
-              .ws-minimized .ws-header {
-                  border-radius: 50%;
-                  padding: 0;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  height: 45px;
-              }
-              .ws-minimized .ws-close-btn {
-                  display: none;
-              }
-          `;
+      #ws-control-panel {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 280px;
+        background: #ffffff;
+        border: 1px solid #bbbbbb;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        z-index: 9999;
+        font-family: Arial, sans-serif;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        color: #222222;
+      }
+      .ws-header {
+        padding: 10px 12px;
+        background: #3a75c4;
+        color: white;
+        font-weight: bold;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        font-size: 15px;
+      }
+      .ws-close-btn {
+        cursor: pointer;
+        font-size: 18px;
+        color: white;
+      }
+      .ws-body {
+        padding: 12px;
+        background: #ffffff;
+        color: #222222;
+        border-radius: 0 0 8px 8px;
+      }
+      .ws-status-row {
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        color: #222222;
+        font-weight: 500;
+      }
+      .ws-status-row span:first-child {
+        margin-right: 8px;
+        font-weight: bold;
+        width: 70px;
+        color: #222222;
+      }
+      #btn-reconnect {
+        margin-left: 8px;
+        background: #f0f0f0;
+        border: 1px solid #dddddd;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 14px;
+        padding: 0;
+      }
+      #btn-reconnect:hover {
+        background: #e0e0e0;
+      }
+      .status-connected {
+        color: #006600;
+        font-weight: bold;
+      }
+      .status-disconnected {
+        color: #444444;
+        font-weight: bold;
+      }
+      .status-error {
+        color: #cc0000;
+        font-weight: bold;
+      }
+      .status-reconnecting {
+        color: #ff6600;
+        font-weight: bold;
+      }
+      .qr-container {
+        margin-top: 15px;
+        text-align: center;
+      }
+      .qr-container h4 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        color: #222222;
+        font-weight: bold;
+      }
+      .qrcode-wrapper {
+        display: inline-block;
+        padding: 10px;
+        background: white;
+        border: 2px solid #3a75c4;
+        border-radius: 8px;
+        margin: 10px 0;
+      }
+      .qr-hint {
+        margin: 10px 0 0 0;
+        font-size: 12px;
+        color: #666666;
+      }
+      .ws-minimized {
+        width: 45px;
+        height: 45px;
+        overflow: hidden;
+        border-radius: 50%;
+      }
+      .ws-minimized .ws-body {
+        display: none;
+      }
+      .ws-minimized .ws-header {
+        border-radius: 50%;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 45px;
+      }
+      .ws-minimized .ws-close-btn {
+        display: none;
+      }
+    `;
 
     document.body.appendChild(style);
     document.body.appendChild(panel);
@@ -815,31 +893,9 @@
       panel.classList.toggle('ws-minimized');
     });
 
-    // 添加控制按钮事件监听
+    // 添加重连按钮事件
     if (isTargetWebsite) {
-      const playBtn = document.getElementById('btn-play');
-      const pauseBtn = document.getElementById('btn-pause');
-      const keyFBtn = document.getElementById('btn-key-f');
       const reconnectBtn = document.getElementById('btn-reconnect');
-
-      if (playBtn) {
-        playBtn.addEventListener('click', function () {
-          handleVideoControl('play');
-        });
-      }
-
-      if (pauseBtn) {
-        pauseBtn.addEventListener('click', function () {
-          handleVideoControl('pause');
-        });
-      }
-
-      if (keyFBtn) {
-        keyFBtn.addEventListener('click', function () {
-          sendKeyPressToServer('f');
-        });
-      }
-
       if (reconnectBtn) {
         reconnectBtn.addEventListener('click', function () {
           // 手动触发重连
@@ -859,8 +915,8 @@
       }
     }
 
-    // 加载历史记录
-    loadHistory();
+    // 生成二维码
+    generateQRCode();
 
     // 自动连接
     if (isTargetWebsite) {
@@ -868,94 +924,47 @@
     }
   }
 
-  // 添加到历史记录
-  function addToHistory(url) {
-    try {
-      // 获取现有历史记录
-      let history = getHistory();
-
-      // 防止重复添加，如果已存在则删除旧的
-      history = history.filter(item => item !== url);
-
-      // 添加到最前面
-      history.unshift(url);
-
-      // 只保留最近的10条记录
-      if (history.length > 10) {
-        history = history.slice(0, 10);
-      }
-
-      // 保存历史记录
-      localStorage.setItem('urlHistory', JSON.stringify(history));
-
-      // 刷新历史记录显示
-      loadHistory();
-    } catch (e) {
-      console.error('添加历史记录失败:', e);
-    }
-  }
-
-  // 获取历史记录
-  function getHistory() {
-    try {
-      const historyStr = localStorage.getItem('urlHistory');
-      return historyStr ? JSON.parse(historyStr) : [];
-    } catch (e) {
-      console.error('获取历史记录失败:', e);
-      return [];
-    }
-  }
-
-  // 从历史记录中删除
-  function removeFromHistory(url) {
-    try {
-      let history = getHistory();
-      history = history.filter(item => item !== url);
-      localStorage.setItem('urlHistory', JSON.stringify(history));
-      loadHistory();
-    } catch (e) {
-      console.error('删除历史记录失败:', e);
-    }
-  }
-
-  // 加载历史记录
-  function loadHistory() {
-    const historyList = document.getElementById('history-list');
-    if (!historyList) return;
-
-    const history = getHistory();
-
-    // 清空现有记录
-    historyList.innerHTML = '';
-
-    if (history.length === 0) {
-      historyList.innerHTML = '<li style="color: #666666; text-align: center; font-style: italic;">暂无历史记录</li>';
+  // 生成二维码
+  async function generateQRCode() {
+    const qrcodeHolder = document.getElementById('qrcode-holder');
+    if (!qrcodeHolder) {
+      console.error('未找到二维码容器');
       return;
     }
 
-    // 添加记录到列表
-    history.forEach(url => {
-      const li = document.createElement('li');
+    // 显示加载中
+    qrcodeHolder.innerHTML = '<p style="color: #666; margin: 20px 0; font-size: 13px;">正在获取本机IP...</p>';
 
-      const a = document.createElement('a');
-      a.href = 'javascript:void(0)';
-      a.title = url;
-      a.textContent = url;
-      a.addEventListener('click', function () {
-        handleOpenUrl(url);
+    // 获取本机局域网IP
+    const localIP = await getLocalIP();
+    const controlUrl = `http://${localIP}:5003`;
+
+    console.log('[二维码] 生成二维码URL:', controlUrl);
+
+    // 清空容器
+    qrcodeHolder.innerHTML = '';
+
+    // 使用QRCode.js生成二维码
+    try {
+      new QRCode(qrcodeHolder, {
+        text: controlUrl,
+        width: 180,
+        height: 180,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
       });
+      console.log('[二维码] ✓ 二维码生成成功');
 
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = '删除';
-      deleteBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        removeFromHistory(url);
-      });
-
-      li.appendChild(a);
-      li.appendChild(deleteBtn);
-      historyList.appendChild(li);
-    });
+      // 在二维码下方显示URL
+      const urlText = document.createElement('p');
+      urlText.style.cssText = 'margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;';
+      urlText.textContent = controlUrl;
+      qrcodeHolder.appendChild(urlText);
+    } catch (error) {
+      console.error('[二维码] ✗ 生成二维码失败:', error);
+      qrcodeHolder.innerHTML = '<p style="color: #cc0000; margin: 20px 0; font-size: 12px;">二维码生成失败</p>';
+    }
   }
 
   //广东荔枝网自动播放
@@ -1220,6 +1229,7 @@
     // Add event listener for visibility changes
     document.addEventListener(visibilityChange, handleVisibilityChange, false);
   })();
+
   //movie页面左右快进后退
   (function () {
     'use strict';
@@ -1234,6 +1244,7 @@
       }
     }, true);
   })();
+
   // 执行点击最高分辨率按钮的主要函数
   function clickHighestResolution() {
     // 定位分辨率选择器容器
@@ -1295,7 +1306,5 @@
   }
 
   clickWithRetry();
-
-
 
 })();
