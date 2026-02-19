@@ -7,7 +7,8 @@
   <title>Apple TV 遥控器</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/static/styles.css">
-  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="/static/remote-icon.png">
+  <link rel="apple-touch-icon" href="/static/remote-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
@@ -31,6 +32,7 @@
     <div id="remote-content" class="tab-content active">
       <div class="compact-header">
         <div class="header-title">
+          <img src="/static/remote-icon.png" alt="遥控器" class="header-logo">
           <h1>Apple TV 遥控器</h1>
         </div>
 
@@ -54,6 +56,9 @@
           <button id="toggle-hdr-btn" class="btn btn-small" disabled>
             <i class="fas fa-adjust"></i> HDR切换
           </button>
+          <div class="mode-status">
+            <span id="mode-label" class="mode-label">普通模式</span>
+          </div>
         </div>
       </div>
 
@@ -134,17 +139,17 @@
           </div>
         </div>
 
-        <!-- B站模式开关 -->
-        <div class="bilibili-mode-row">
-          <span class="bilibili-mode-label">B站模式</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="bilibili-mode-toggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
         <!-- B站搜索输入框 - 仅在B站模式开启时显示 -->
 <div id="bilibili-search-container" class="bilibili-search-container" style="display: none;">
+          <!-- 观看历史 / 我的收藏 -->
+          <div class="bilibili-quicknav-group">
+            <button id="bilibili-history-btn" class="bilibili-quicknav-btn" disabled>
+              <i class="fas fa-history"></i> 观看历史
+            </button>
+            <button id="bilibili-favorites-btn" class="bilibili-quicknav-btn" disabled>
+              <i class="fas fa-star"></i> 我的收藏
+            </button>
+          </div>
           <div class="search-input-group">
             <input
               type="text"
@@ -185,19 +190,105 @@
           </div>
         </div>
 
+        <!-- Dogegg搜索输入框 - 仅在Dogegg模式开启时显示 -->
+        <div id="dogegg-search-container" class="dogegg-search-container" style="display: none;">
+          <!-- Tab切换按钮（选集 / 换源） -->
+          <div class="dogegg-tab-group">
+            <button id="dogegg-tab-episode-btn" class="dogegg-tab-btn" disabled>
+              <i class="fas fa-list"></i> 选集
+            </button>
+            <button id="dogegg-tab-source-btn" class="dogegg-tab-btn" disabled>
+              <i class="fas fa-exchange-alt"></i> 换源
+            </button>
+          </div>
+          <div class="search-input-group">
+            <input
+              type="text"
+              id="dogegg-search-input"
+              class="dogegg-search-input"
+              placeholder="输入电影/剧集名称..."
+              disabled
+            >
+            <button
+              id="dogegg-search-btn"
+              class="dogegg-search-btn"
+              disabled
+            >
+              <i class="fas fa-search"></i> 搜索
+            </button>
+          </div>
+
+          <!-- Dogegg搜索历史 -->
+          <div id="dogegg-history-container" class="dogegg-history-container" style="display: none;">
+            <div class="dogegg-history-header">
+              <span class="dogegg-history-title">搜索历史</span>
+              <button id="dogegg-clear-history-btn" class="dogegg-clear-history-btn">
+                <i class="fas fa-trash-alt"></i> 清空
+              </button>
+            </div>
+            <div id="dogegg-history-list" class="dogegg-history-list">
+              <!-- 历史记录将通过JavaScript动态添加 -->
+            </div>
+            <div id="dogegg-history-pagination" class="dogegg-history-pagination" style="display: none;">
+              <button id="dogegg-history-prev-btn" class="dogegg-history-page-btn" disabled>
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span id="dogegg-history-page-info" class="dogegg-history-page-info">1/1</span>
+              <button id="dogegg-history-next-btn" class="dogegg-history-page-btn" disabled>
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 央视直播频道列表 - 仅在央视模式开启时显示 -->
+        <div id="cctv-channels-container" class="cctv-channels-container" style="display: none;">
+          <h4 class="cctv-channels-title">
+            <span class="channels-title-text">
+              <i class="fas fa-tv"></i> 央视频道
+            </span>
+            <button id="cctv-toggle-btn" class="channels-toggle-btn">
+              <i class="fas fa-chevron-up"></i>
+            </button>
+          </h4>
+          <div id="cctv-channels-grid" class="cctv-channels-grid">
+            <!-- 频道按钮将由 script.js 动态生成 -->
+          </div>
+        </div>
+
+        <!-- 广东直播频道列表 - 仅在广东模式开启时显示 -->
+        <div id="guangdong-channels-container" class="guangdong-channels-container" style="display: none;">
+          <h4 class="guangdong-channels-title">
+            <span class="channels-title-text">
+              <i class="fas fa-tv"></i> 广东频道
+            </span>
+            <button id="guangdong-toggle-btn" class="channels-toggle-btn">
+              <i class="fas fa-chevron-up"></i>
+            </button>
+          </h4>
+          <div id="guangdong-channels-grid" class="guangdong-channels-grid">
+            <!-- 频道按钮将由 script.js 动态生成 -->
+          </div>
+        </div>
+
         <!-- 桌面切换按钮 - 整合到控制区域 -->
         <div class="desktop-switch-integrated">
           <div class="btn-group">
-            <button id="switch_cctv_live" class="btn btn-warning" disabled>
+            <button id="switch_cctv_live" class="btn btn-cctv" disabled>
               <i class="fas fa-tv"></i> 中央直播
             </button>
             <button id="guangdong-live-btn" class="btn btn-warning" disabled>
               <i class="fas fa-tv"></i> 广东直播
             </button>
           </div>
-          <button id="bilibili-btn" class="btn btn-bilibili" disabled>
-            <i class="fas fa-play-circle"></i> 哔哩哔哩
-          </button>
+          <div class="btn-group">
+            <button id="bilibili-btn" class="btn btn-bilibili" disabled>
+              <i class="fas fa-play-circle"></i> 哔哩哔哩
+            </button>
+            <button id="lunatv-btn" class="btn btn-lunatv" disabled>
+              <i class="fas fa-moon"></i> LunaTV
+            </button>
+          </div>
         </div>
       </div>
 

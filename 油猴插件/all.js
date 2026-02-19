@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         电影+广东浏览器远程控制 - 链接接收器
+// @name         超级无敌控制器
 // @namespace    http://tampermonkey.net/
 // @version      0.2.0
 // @description  通过WebSocket连接到本地服务器，接收并打开视频链接，自动全屏视频，支持远程视频控制，支持央视直播频道切换
@@ -9,10 +9,13 @@
 // @match        https://www.gdtv.cn/*
 // @match        https://tv.cctv.com/live/cctv*
 // @match        https://www.bilibili.com/*
+// @match        https://tv.dogegg.online/*
+// @noframes
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
 // @connect      cdn.socket.io
 // @connect      192.168.1.115
+// @connect      tv.dogegg.online
 // @require      https://cdn.socket.io/4.6.0/socket.io.min.js
 // @require      https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js
 // ==/UserScript==
@@ -21,7 +24,9 @@
 
 (function () {
   'use strict';
-
+  // 防止脚本重复注入（@match *://*/* 和具体 URL 规则可能同时匹配导致执行两次）
+  if (window.__apptvRemoteLoaded) return;
+  window.__apptvRemoteLoaded = true;
   // 连接到本地Flask Socket.IO服务器
   const WS_URL = 'http://localhost:5003';
   let socket;
@@ -37,7 +42,7 @@
   let wsHeartbeatInterval = 30000; // 心跳检测间隔30秒
 
   // 检查是否在目标网站上
-  const isTargetWebsite = /movie\.tnanko\.top|www\.gdtv\.cn|tv\.cctv\.com|bilibili\.com/.test(window.location.href);
+  const isTargetWebsite = /movie\.tnanko\.top|www\.gdtv\.cn|tv\.cctv\.com|bilibili\.com|tv\.dogegg\.online/.test(window.location.href);
 
   console.log('=== 油猴脚本启动 ===');
   console.log('当前URL:', window.location.href);
@@ -234,6 +239,480 @@
     });
   }
 
+  // Dogegg页面导航 - 基于视觉位置的简单导航
+  let dogeggFocusedIndex = -1; // 当前聚焦卡片在可见列表中的索引
+
+  function getDogeggColumnCount() {
+    const grid = document.querySelector('[role="grid"]');
+    if (grid) {
+      const count = parseInt(grid.getAttribute('aria-colcount'));
+      if (!isNaN(count) && count > 0) return count;
+    }
+    return 4;
+  }
+
+  function getAllVisibleCellsSorted() {
+    // 获取所有可见 gridcell，按视觉位置排序（从上到下，从左到右）
+    const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
+
+    return cells.map(cell => {
+      const rect = cell.getBoundingClientRect();
+      return {
+        cell,
+        top: Math.round(rect.top),
+        left: Math.round(rect.left)
+      };
+    }).sort((a, b) => {
+      // 先按行排序（top 坐标，容差30px认为是同一行）
+      const rowDiff = Math.floor(a.top / 30) - Math.floor(b.top / 30);
+      if (rowDiff !== 0) return rowDiff;
+      // 同一行内按列排序（left 坐标）
+      return a.left - b.left;
+    }).map(item => item.cell); // 只返回 cell 元素
+  }
+
+  function clearDogeggFocus() {
+    document.querySelectorAll('[role="gridcell"]').forEach(cell => {
+      const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
+      if (card) {
+        card.style.outline = '';
+        card.style.boxShadow = '';
+      }
+    });
+  }
+
+  function applyDogeggFocus(cell, index) {
+    if (!cell) return;
+    const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
+    if (!card) return;
+
+    card.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
+    card.style.boxShadow = '0 0 0 5px rgba(74, 222, 128, 0.25)';
+    card.style.borderRadius = '8px';
+    cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    dogeggFocusedIndex = index;
+
+    const cols = getDogeggColumnCount();
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    console.log(`Dogegg: 聚焦 index=${index}, row=${row}, col=${col}`);
+  }
+
+  function dogeggNavigate(direction) {
+    const cols = getDogeggColumnCount();
+    const visibleCells = getAllVisibleCellsSorted();
+
+    if (!visibleCells.length) {
+      console.log('Dogegg: 没有找到可见的卡片');
+      return;
+    }
+
+    // 初始化：聚焦第一个卡片
+    if (dogeggFocusedIndex < 0 || dogeggFocusedIndex >= visibleCells.length) {
+      clearDogeggFocus();
+      applyDogeggFocus(visibleCells[0], 0);
+      console.log('Dogegg: 初始化，聚焦第一个卡片');
+      return;
+    }
+
+    let targetIndex = dogeggFocusedIndex;
+
+    if (direction === 'left') {
+      // 向左：index - 1，可以跨行（到达行首时跳到上一行末尾）
+      const newIndex = dogeggFocusedIndex - 1;
+      if (newIndex >= 0) {
+        targetIndex = newIndex;
+      }
+    } else if (direction === 'right') {
+      // 向右：index + 1，可以跨行（到达行末时跳到下一行开头）
+      const newIndex = dogeggFocusedIndex + 1;
+      if (newIndex < visibleCells.length) {
+        targetIndex = newIndex;
+      }
+    } else if (direction === 'up') {
+      // 向上：index - cols
+      targetIndex = dogeggFocusedIndex - cols;
+    } else if (direction === 'down') {
+      // 向下：index + cols
+      targetIndex = dogeggFocusedIndex + cols;
+    }
+
+    // 检查目标索引是否在可见范围内
+    if (targetIndex >= 0 && targetIndex < visibleCells.length) {
+      // 目标卡片可见，直接聚焦
+      clearDogeggFocus();
+      applyDogeggFocus(visibleCells[targetIndex], targetIndex);
+    } else if ((direction === 'up' && targetIndex < 0) || (direction === 'down' && targetIndex >= visibleCells.length)) {
+      // 需要滚动
+      const scrollAmount = direction === 'down' ? 350 : -350;
+      window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+
+      console.log(`Dogegg: 滚动 ${direction}, 等待新卡片渲染`);
+
+      // 滚动后重新获取卡片列表并尝试聚焦
+      setTimeout(() => {
+        const newVisibleCells = getAllVisibleCellsSorted();
+
+        // 重新计算目标索引（保持同一列）
+        const currentCol = dogeggFocusedIndex % cols;
+        let newTargetIndex = -1;
+
+        if (direction === 'down') {
+          // 向下滚动后，找到第一行的同一列
+          newTargetIndex = currentCol;
+        } else if (direction === 'up') {
+          // 向上滚动后，找到最后一行的同一列
+          const lastRowStart = Math.floor((newVisibleCells.length - 1) / cols) * cols;
+          newTargetIndex = Math.min(lastRowStart + currentCol, newVisibleCells.length - 1);
+        }
+
+        if (newTargetIndex >= 0 && newTargetIndex < newVisibleCells.length) {
+          clearDogeggFocus();
+          applyDogeggFocus(newVisibleCells[newTargetIndex], newTargetIndex);
+        }
+      }, 450);
+    }
+  }
+
+  function dogeggClick() {
+    const visibleCells = getAllVisibleCellsSorted();
+
+    if (dogeggFocusedIndex < 0 || dogeggFocusedIndex >= visibleCells.length) {
+      console.log('Dogegg: 没有聚焦的卡片');
+      return;
+    }
+
+    const cell = visibleCells[dogeggFocusedIndex];
+    if (!cell) return;
+
+    // 点击播放按钮 div[data-button="true"]（第一个匹配的）
+    const playBtn = cell.querySelector('[data-button="true"]');
+    if (playBtn) {
+      console.log(`Dogegg: 点击播放按钮 index=${dogeggFocusedIndex}`);
+      playBtn.click();
+      return;
+    }
+
+    // 降级：点击整个卡片
+    const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
+    if (card) {
+      card.click();
+      console.log(`Dogegg: 降级点击卡片 index=${dogeggFocusedIndex}`);
+    }
+  }
+
+  // Dogegg播放页面播放源切换功能
+  let dogeggPlaySourceIndex = -1;
+  let cachedDogeggSources = null;
+
+  // === 播放页面 Tab 工具函数 ===
+  function findPlayTab(tabText) {
+    const span = Array.from(document.querySelectorAll('span')).find(
+      el => el.textContent?.trim() === tabText
+    );
+    return span ? span.closest('.cursor-pointer') : null;
+  }
+
+  function getActiveTabName() {
+    const episodeTab = findPlayTab('选集');
+    if (!episodeTab) return '换源';
+    // Active tab has 'text-primary-600' as a standalone token
+    // Inactive tab only has 'hover:text-primary-600' (different token) + 'text-gray-700'
+    const classes = episodeTab.className.split(/\s+/);
+    if (classes.includes('text-primary-600')) return '选集';
+    return '换源';
+  }
+
+  function switchToPlayTab(tabText) {
+    const tab = findPlayTab(tabText);
+    if (!tab) { console.log('Dogegg播放页: 未找到Tab:', tabText); return false; }
+    tab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    tab.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
+    tab.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
+    cachedDogeggSources = null; dogeggPlaySourceIndex = -1;
+    cachedDogeggEpisodes = null; dogeggEpisodeIndex = -1;
+    console.log('Dogegg播放页: 已切换到Tab:', tabText);
+    return true;
+  }
+
+  // === 选集功能 ===
+  let dogeggEpisodeIndex = -1;
+  let cachedDogeggEpisodes = null;
+
+  function getDogeggEpisodes() {
+    if (cachedDogeggEpisodes && cachedDogeggEpisodes.length > 0 &&
+        cachedDogeggEpisodes.every(el => document.body.contains(el))) {
+      return cachedDogeggEpisodes;
+    }
+    cachedDogeggEpisodes = null; dogeggEpisodeIndex = -1;
+
+    const episodeLabel = Array.from(document.querySelectorAll('span')).find(
+      el => el.textContent?.trim() === '选集'
+    );
+    if (!episodeLabel) { console.log('Dogegg播放页: 未找到"选集"标签'); return []; }
+
+    let container = null;
+    let anc = episodeLabel.parentElement;
+    while (anc && anc.tagName !== 'BODY') {
+      const found = anc.querySelector('[class*="content-start"]');
+      if (found) { container = found; break; }
+      anc = anc.parentElement;
+    }
+    if (!container) { console.log('Dogegg播放页: 未找到集数列表容器'); return []; }
+
+    const btns = Array.from(container.querySelectorAll('button'));
+    console.log('Dogegg播放页: 找到', btns.length, '个集数按钮');
+    cachedDogeggEpisodes = btns;
+    return btns;
+  }
+
+  function highlightDogeggEpisode(index) {
+    const episodes = getDogeggEpisodes();
+    if (index < 0 || index >= episodes.length) return;
+    episodes.forEach(b => { b.style.outline = ''; b.style.boxShadow = ''; });
+    const current = episodes[index];
+    current.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
+    current.style.boxShadow = '0 0 0 6px rgba(74, 222, 128, 0.2)';
+    current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    console.log('Dogegg播放页: 高亮集数 [' + (index + 1) + '/' + episodes.length + '] ' + current.textContent?.trim());
+  }
+
+  function dogeggEpisodeNavigate(direction) {
+    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+    const episodes = getDogeggEpisodes();
+    if (episodes.length === 0) { console.log('Dogegg播放页: 找不到集数列表'); return; }
+    if (dogeggEpisodeIndex < 0) {
+      const currentIdx = episodes.findIndex(btn =>
+        btn.className.includes('from-primary-500') || btn.className.includes('scale-105')
+      );
+      dogeggEpisodeIndex = currentIdx >= 0 ? currentIdx : 0;
+      highlightDogeggEpisode(dogeggEpisodeIndex);
+      return;
+    }
+    if (direction === 'up') dogeggEpisodeIndex = Math.max(0, dogeggEpisodeIndex - 1);
+    else if (direction === 'down') dogeggEpisodeIndex = Math.min(episodes.length - 1, dogeggEpisodeIndex + 1);
+    highlightDogeggEpisode(dogeggEpisodeIndex);
+  }
+
+  function dogeggEpisodeClick() {
+    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+    const episodes = getDogeggEpisodes();
+    if (dogeggEpisodeIndex < 0 || dogeggEpisodeIndex >= episodes.length) { console.log('Dogegg播放页: 没有选中的集数'); return; }
+    const btn = episodes[dogeggEpisodeIndex];
+    console.log('Dogegg播放页: 点击集数 ' + btn.textContent?.trim());
+    btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    btn.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
+    btn.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
+    cachedDogeggEpisodes = null; dogeggEpisodeIndex = -1;
+  }
+
+  function getDogeggPlaySources() {
+    // 缓存有效直接返回
+    if (cachedDogeggSources && cachedDogeggSources.length > 0 &&
+        cachedDogeggSources.every(el => document.body.contains(el))) {
+      return cachedDogeggSources;
+    }
+    cachedDogeggSources = null;
+    dogeggPlaySourceIndex = -1;
+
+    // Step1: 找文本严格等于"换源"的 span
+    const sourceLabel = Array.from(document.querySelectorAll('span')).find(
+      el => el.textContent?.trim() === '换源'
+    );
+    if (!sourceLabel) {
+      console.log('Dogegg播放页: 未找到"换源"标签，请确认换源面板已打开');
+      return [];
+    }
+
+    // Step2: 从"换源"span 向上遍历，找到包含 overflow-y-auto 子元素的祖先
+    let listContainer = null;
+    let ancestor = sourceLabel.parentElement;
+    while (ancestor && ancestor !== document.body) {
+      const found = ancestor.querySelector('.overflow-y-auto');
+      if (found) {
+        listContainer = found;
+        break;
+      }
+      ancestor = ancestor.parentElement;
+    }
+
+    if (!listContainer) {
+      console.log('Dogegg播放页: 未找到资源列表容器');
+      return [];
+    }
+
+    // Step3: 取列表直接子 div 中包含 img 的（即资源卡片，排除底部"影片匹配有误"按钮）
+    const items = Array.from(listContainer.children).filter(
+      el => el.tagName === 'DIV' && el.querySelector('img')
+    );
+
+    if (items.length === 0) {
+      console.log('Dogegg播放页: 未找到资源卡片，listContainer.children:', listContainer.children.length);
+      return [];
+    }
+
+    console.log(`Dogegg播放页: 找到 ${items.length} 个资源卡片`);
+    cachedDogeggSources = items;
+    return items;
+  }
+
+  function highlightDogeggPlaySource(index) {
+    const sources = getDogeggPlaySources();
+    if (index < 0 || index >= sources.length) return;
+
+    // 清除所有高亮
+    sources.forEach(source => {
+      source.style.outline = '';
+      source.style.boxShadow = '';
+    });
+
+    // 高亮当前选中的资源条目
+    const current = sources[index];
+    current.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
+    current.style.boxShadow = '0 0 0 6px rgba(74, 222, 128, 0.2)';
+
+    // 滚动到可见区域
+    current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // 读取资源名称用于日志
+    const nameEl = current.querySelector('span[class*="border"]');
+    const name = nameEl ? nameEl.textContent?.trim() : `第${index + 1}项`;
+    console.log(`Dogegg播放页: 高亮资源 [${index + 1}/${sources.length}] ${name}`);
+  }
+
+  function dogeggPlaySourceNavigate(direction) {
+    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+
+    const sources = getDogeggPlaySources();
+    if (sources.length === 0) {
+      console.log('Dogegg播放页: 找不到换源列表，请确认换源面板已打开');
+      return;
+    }
+
+    // 初始化：定位到当前正在播放的那个资源（有"当前源"标签）
+    if (dogeggPlaySourceIndex < 0) {
+      const currentIdx = sources.findIndex(el =>
+        el.textContent?.includes('当前源')
+      );
+      dogeggPlaySourceIndex = currentIdx >= 0 ? currentIdx : 0;
+      highlightDogeggPlaySource(dogeggPlaySourceIndex);
+      return;
+    }
+
+    if (direction === 'up') {
+      dogeggPlaySourceIndex = Math.max(0, dogeggPlaySourceIndex - 1);
+    } else if (direction === 'down') {
+      dogeggPlaySourceIndex = Math.min(sources.length - 1, dogeggPlaySourceIndex + 1);
+    }
+
+    highlightDogeggPlaySource(dogeggPlaySourceIndex);
+  }
+
+  function dogeggPlaySourceClick() {
+    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+
+    const sources = getDogeggPlaySources();
+    if (dogeggPlaySourceIndex < 0 || dogeggPlaySourceIndex >= sources.length) {
+      console.log('Dogegg播放页: 没有选中的资源');
+      return;
+    }
+
+    const item = sources[dogeggPlaySourceIndex];
+    const nameEl = item.querySelector('span[class*="border"]');
+    const name = nameEl ? nameEl.textContent?.trim() : `第${dogeggPlaySourceIndex + 1}项`;
+    console.log(`Dogegg播放页: 点击资源 ${name}`);
+
+    // React 应用需要真实的 MouseEvent 才能触发合成事件
+    item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    item.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
+    item.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
+
+    // 点击后清空缓存，等待页面更新
+    cachedDogeggSources = null;
+    dogeggPlaySourceIndex = -1;
+  }
+
+  // === B站历史页导航 ===
+  let bilibiliHistoryFocusedIndex = -1;
+  let cachedBilibiliHistoryItems = null;
+
+  function getBilibiliHistoryItems() {
+    if (cachedBilibiliHistoryItems && cachedBilibiliHistoryItems.length > 0 &&
+        cachedBilibiliHistoryItems.every(el => el.isConnected)) {
+      return cachedBilibiliHistoryItems;
+    }
+    cachedBilibiliHistoryItems = null;
+    bilibiliHistoryFocusedIndex = -1;
+    // BewlyCat 使用 open Shadow DOM，Vue 应用挂载在 #bewly.shadowRoot 内
+    const bewly = document.getElementById('bewly');
+    if (!bewly) { console.log('B站历史页: 未找到 #bewly 容器'); return []; }
+    const root = bewly.shadowRoot;
+    if (!root) { console.log('B站历史页: 未找到 shadowRoot'); return []; }
+    const items = Array.from(root.querySelectorAll('a.group')).filter(
+      a => a.querySelector('section') && a.href && a.href.includes('bilibili')
+    );
+    console.log('B站历史页: 找到', items.length, '个历史记录');
+    cachedBilibiliHistoryItems = items;
+    return items;
+  }
+
+  function highlightBilibiliHistoryItem(index) {
+    const items = getBilibiliHistoryItems();
+    if (index < 0 || index >= items.length) return;
+    // 清除所有高亮（作用在 <section> 上）
+    items.forEach(item => {
+      const sec = item.querySelector('section');
+      if (sec) { sec.style.outline = ''; sec.style.boxShadow = ''; sec.style.background = ''; }
+    });
+    const current = items[index];
+    const sec = current.querySelector('section');
+    if (sec) {
+      sec.style.outline = '3px solid rgba(251, 114, 153, 0.85)';
+      sec.style.boxShadow = '0 0 0 6px rgba(251, 114, 153, 0.2)';
+      sec.style.background = 'rgba(251, 114, 153, 0.08)';
+    }
+    current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const imgEl = current.querySelector('img');
+    console.log('B站历史: 高亮 [' + (index + 1) + '/' + items.length + '] ' + (imgEl ? imgEl.alt || '' : ''));
+  }
+
+  function bilibiliHistoryNavigate(direction) {
+    const items = getBilibiliHistoryItems();
+    if (items.length === 0) { console.log('B站历史页: 找不到历史记录'); return; }
+    if (bilibiliHistoryFocusedIndex < 0) {
+      bilibiliHistoryFocusedIndex = 0;
+    } else if (direction === 'up') {
+      bilibiliHistoryFocusedIndex = Math.max(0, bilibiliHistoryFocusedIndex - 1);
+    } else if (direction === 'down') {
+      if (bilibiliHistoryFocusedIndex >= items.length - 1) {
+        // 已到末尾，清除缓存重新查询，获取 BewlyCat 已加载的新条目
+        const prevCount = items.length;
+        cachedBilibiliHistoryItems = null;
+        const newItems = getBilibiliHistoryItems();
+        if (newItems.length > prevCount) {
+          bilibiliHistoryFocusedIndex = prevCount; // 跳到原列表之后的第一个新条目
+          console.log('B站历史: 加载新条目，共', newItems.length, '个');
+        } else {
+          console.log('B站历史: 已到最末，暂无更多');
+        }
+      } else {
+        bilibiliHistoryFocusedIndex = bilibiliHistoryFocusedIndex + 1;
+      }
+    }
+    highlightBilibiliHistoryItem(bilibiliHistoryFocusedIndex);
+  }
+
+  function bilibiliHistoryClick() {
+    const items = getBilibiliHistoryItems();
+    if (bilibiliHistoryFocusedIndex < 0 || bilibiliHistoryFocusedIndex >= items.length) { console.log('B站历史: 没有选中的项目'); return; }
+    const item = items[bilibiliHistoryFocusedIndex];
+    console.log('B站历史: 打开视频', item.href);
+    item.click(); // 触发 BewlyCat ALink 点击处理
+    cachedBilibiliHistoryItems = null;
+    bilibiliHistoryFocusedIndex = -1;
+  }
+
   // 处理B站搜索命令
   function handleBilibiliSearch(keyword) {
     console.log('处理B站搜索命令, 关键词:', keyword);
@@ -409,6 +888,9 @@
             timeout: 3000
           });
         }
+
+        // 连接成功后，检测并回传当前模式
+        detectAndReportMode();
       });
 
       // 处理来自服务器的命令
@@ -446,6 +928,199 @@
           window.location.href = data.url;
           console.log('已执行跳转命令');
         }, 100);
+      });
+
+
+      // 处理B站观看历史命令
+      socket.on('bilibili_history_command', function (data) {
+        if (!window.location.href.includes('bilibili.com')) return;
+        const cmdId = 'bhist_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__bilibili_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__bilibili_cmd__', cmdId);
+        console.log('收到B站观看历史命令');
+        window.location.href = data.url;
+      });
+
+      // 处理B站我的收藏命令
+      socket.on('bilibili_favorites_command', function (data) {
+        if (!window.location.href.includes('bilibili.com')) return;
+        const cmdId = 'bfav_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__bilibili_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__bilibili_cmd__', cmdId);
+        console.log('收到B站我的收藏命令');
+        window.location.href = 'https://www.bilibili.com/?page=Favorites';
+      });
+
+
+      // 处理央视频道切换命令
+      socket.on('cctv_channel_command', function (data) {
+        if (!window.location.href.includes('tv.cctv.com')) return;
+        const cmdId = 'cctv_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__cctv_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__cctv_cmd__', cmdId);
+        console.log('收到央视频道切换命令:', data.name, data.url);
+        GM_notification({
+          title: '央视频道',
+          text: '切换到 ' + data.name,
+          timeout: 2000
+        });
+        window.location.href = data.url;
+      });
+
+
+      // 处理广东频道切换命令
+      socket.on('guangdong_channel_command', function (data) {
+        if (!window.location.href.includes('gdtv.cn')) return;
+        const cmdId = 'gd_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__gd_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__gd_cmd__', cmdId);
+        console.log('收到广东频道切换命令:', data.name, data.url);
+        GM_notification({
+          title: '广东频道',
+          text: '切换到 ' + data.name,
+          timeout: 2000
+        });
+        window.location.href = data.url;
+      });
+
+      // 处理B站历史页导航命令
+      socket.on('bilibili_history_navigate_command', function (data) {
+        if (!window.location.href.includes('bilibili.com') || !window.location.href.includes('page=History')) return;
+        const cmdId = 'bhnav_' + data.timestamp + '_' + data.direction;
+        const lastCmd = localStorage.getItem('__bilibili_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__bilibili_cmd__', cmdId);
+        console.log('收到B站历史导航命令:', data.direction);
+        if (data.direction === 'click') {
+          bilibiliHistoryClick();
+        } else {
+          bilibiliHistoryNavigate(data.direction);
+        }
+      });
+
+
+  // === Dogegg 播放页视频快进/快退 ===
+  function dogeggVideoSeek(direction) {
+    const video = document.querySelector('video');
+    if (!video) {
+      console.log('Dogegg播放页: 未找到视频元素');
+      return;
+    }
+    const seekAmount = 10; // 快进/快退秒数
+    if (direction === 'left') {
+      video.currentTime = Math.max(0, video.currentTime - seekAmount);
+      console.log('Dogegg播放页: 后退', seekAmount, '秒，当前', Math.floor(video.currentTime), '/', Math.floor(video.duration || 0));
+    } else if (direction === 'right') {
+      video.currentTime = Math.min(video.duration || Infinity, video.currentTime + seekAmount);
+      console.log('Dogegg播放页: 前进', seekAmount, '秒，当前', Math.floor(video.currentTime), '/', Math.floor(video.duration || 0));
+    }
+  }
+
+      // 处理Dogegg导航命令
+      socket.on('dogegg_navigate_command', function (data) {
+        if (!window.location.href.includes('tv.dogegg.online'))
+          return;
+        // 用 localStorage 跨 iframe 去重，防止多个脚本实例重复执行
+        const cmdId = 'nav_' + data.timestamp + '_' + data.direction;
+        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__dogegg_cmd__', cmdId);
+        console.log('收到Dogegg导航命令:', data.direction);
+
+        // 判断是否在播放页面
+        if (window.location.href.includes('/play')) {
+          // 播放页面：上下键根据当前激活Tab决定行为
+          if (data.direction === 'up' || data.direction === 'down') {
+            const activeTab = getActiveTabName();
+            console.log('当前激活Tab:', activeTab);
+            if (activeTab === '选集') {
+              dogeggEpisodeNavigate(data.direction);
+            } else {
+              dogeggPlaySourceNavigate(data.direction);
+            }
+          } else if (data.direction === 'left' || data.direction === 'right') {
+            // 左右键：控制视频播放器快进/快退
+            dogeggVideoSeek(data.direction);
+          } else {
+            dogeggNavigate(data.direction);
+          }
+        } else {
+          // 非播放页面：卡片导航
+          dogeggNavigate(data.direction);
+        }
+      });
+
+      // 处理Dogegg点击命令
+      socket.on('dogegg_click_command', function (data) {
+        if (!window.location.href.includes('tv.dogegg.online'))
+          return;
+        const cmdId = 'click_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__dogegg_cmd__', cmdId);
+        console.log('收到Dogegg点击命令');
+
+        // 判断是否在播放页面
+        if (window.location.href.includes('/play')) {
+          const activeTab = getActiveTabName();
+          if (activeTab === '选集') {
+            dogeggEpisodeClick();
+          } else {
+            dogeggPlaySourceClick();
+          }
+        } else {
+          dogeggClick();
+        }
+      });
+
+      // 处理Dogegg Tab切换命令
+      socket.on('dogegg_tab_command', function (data) {
+        if (!window.location.href.includes('tv.dogegg.online/play')) return;
+        const cmdId = 'tab_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__dogegg_cmd__', cmdId);
+        console.log('收到Dogegg Tab切换命令:', data.tab);
+        switchToPlayTab(data.tab);
+      });
+
+      // 处理Dogegg首页命令
+      socket.on('dogegg_home_command', function (data) {
+        const cmdId = 'home_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__dogegg_cmd__', cmdId);
+        console.log('收到Dogegg首页命令:', data.url);
+        window.location.href = data.url;
+      });
+
+      // 处理Dogegg搜索命令
+      socket.on('dogegg_search_command', function (data) {
+        const cmdId = 'search_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__dogegg_cmd__', cmdId);
+
+        const keyword = data.keyword;
+        console.log('收到Dogegg搜索命令, 关键词:', keyword);
+
+        // 构建搜索URL
+        const searchUrl = `https://tv.dogegg.online/search?q=${encodeURIComponent(keyword)}`;
+        console.log('即将跳转到:', searchUrl);
+
+        // 显示通知
+        GM_notification({
+          title: 'Dogegg搜索',
+          text: `正在搜索: ${keyword}`,
+          timeout: 3000
+        });
+
+        // 跳转到搜索页面
+        window.location.href = searchUrl;
       });
 
       // 处理ESP32按键响应
@@ -527,12 +1202,38 @@
 
         // 直接在当前窗口打开URL，而不是新标签页
         window.location.href = url;
+
+        // 跳转后会触发页面刷新，在新页面的 detectAndReportMode 中自动检测模式
       } else {
         console.error('收到无效URL:', url);
       }
     } catch (e) {
       console.error('处理打开URL命令失败:', e);
     }
+  }
+
+  // 检测当前页面模式并回传给服务器
+  function detectAndReportMode() {
+    if (!socket || !socket.connected) return;
+
+    const currentUrl = window.location.href;
+    let mode = 'normal';
+    let subMode = 'normal';
+
+    if (currentUrl.includes('bilibili.com')) {
+      mode = 'bilibili';
+      if (currentUrl.includes('page=History')) subMode = 'history';
+    } else if (currentUrl.includes('tv.dogegg.online')) {
+      mode = 'dogegg';
+    } else if (currentUrl.includes('tv.cctv.com')) {
+      mode = 'cctv';
+    } else if (currentUrl.includes('gdtv.cn')) {
+      mode = 'guangdong';
+    }
+
+    console.log('当前模式:', mode, '子模式:', subMode);
+    socket.emit('report_mode', { mode: mode });
+    socket.emit('bilibili_sub_mode', { sub_mode: subMode });
   }
 
   // 通过WebSocket或HTTP发送按键到ESP32

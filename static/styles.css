@@ -59,6 +59,20 @@ body {
     border: 1px solid var(--apple-dark-border);
 }
 
+.header-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.header-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
 .header-title h1 {
     font-size: 22px;
     font-weight: 600;
@@ -91,12 +105,41 @@ body {
     background: var(--apple-dark-primary);
 }
 
+/* 模式状态标签 */
+.mode-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.mode-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.mode-label.bilibili-active {
+    color: #fb7299;
+}
+
+.mode-label.dogegg-active {
+    color: #4ade80;
+}
+
 /* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .compact-header {
         padding: 12px;
     }
-    
+
+    .header-logo {
+        width: 32px;
+        height: 32px;
+    }
+
     .header-title h1 {
         font-size: 20px;
         margin-bottom: 8px;
@@ -249,6 +292,19 @@ input[type="url"]:focus {
 
 .btn-warning:hover:not(:disabled) {
     background: rgba(255, 159, 10, 0.8);
+}
+
+.btn-cctv {
+    background: #ef4444;
+}
+
+.btn-cctv:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.8);
+}
+
+.btn-cctv:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .btn-group {
@@ -1838,6 +1894,39 @@ footer {
     cursor: not-allowed;
 }
 
+.bilibili-quicknav-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.bilibili-quicknav-btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid rgba(251, 114, 153, 0.4);
+    border-radius: 8px;
+    background: rgba(251, 114, 153, 0.08);
+    color: #fb7299;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.bilibili-quicknav-btn:hover:not(:disabled) {
+    background: rgba(251, 114, 153, 0.2);
+    border-color: rgba(251, 114, 153, 0.6);
+}
+
+.bilibili-quicknav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .bilibili-search-btn {
     padding: 10px 18px;
     font-size: 14px;
@@ -1980,7 +2069,6 @@ footer {
 
 .btn-bilibili {
     background: #fb7299;
-    margin-top: 10px;
 }
 
 .btn-bilibili:hover:not(:disabled) {
@@ -1988,6 +2076,20 @@ footer {
 }
 
 .btn-bilibili:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-lunatv {
+    background: #4ade80;
+    color: #fff;
+}
+
+.btn-lunatv:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.8);
+}
+
+.btn-lunatv:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -2004,6 +2106,44 @@ footer {
 /* B站模式下显示首页按钮 */
 .bilibili-mode-active #back-btn {
     display: inline-flex !important;
+}
+
+/* Dogegg模式样式 */
+.dogegg-mode-label {
+    color: #4ade80 !important;
+}
+
+.dogegg-toggle-slider {
+    background-color: rgba(74, 222, 128, 0.2) !important;
+}
+
+input:checked + .dogegg-toggle-slider {
+    background-color: #4ade80 !important;
+}
+
+/* Dogegg模式激活状态 */
+.dogegg-mode-active #space-btn #space-icon {
+    display: none;
+}
+
+.dogegg-mode-active #space-btn #tap-icon {
+    display: inline !important;
+}
+
+/* Dogegg模式下点击手势按钮变绿色 */
+.dogegg-mode-active #space-btn {
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.4);
+}
+
+/* Dogegg模式下显示首页按钮，并使用绿色 */
+.dogegg-mode-active #back-btn {
+    display: inline-flex !important;
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.4);
+}
+
+.dogegg-mode-active #back-btn:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.2) !important;
+    color: #4ade80 !important;
 }
 }
 
@@ -2022,19 +2162,423 @@ footer {
     min-width: 70px;
 }
 
+/* Dogegg搜索框样式 */
+.dogegg-search-container {
+    padding: 12px 0;
+    border-top: 1px solid var(--apple-dark-border);
+    margin-top: 10px;
+}
+
+.dogegg-search-input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid var(--apple-dark-border);
+    border-radius: 10px;
+    background: rgba(58, 58, 60, 0.6);
+    color: var(--apple-dark-text);
+    transition: all 0.2s ease;
+}
+
+.dogegg-search-input::placeholder {
+    color: rgba(235, 235, 245, 0.3);
+}
+
+.dogegg-search-input:focus {
+    outline: none;
+    border-color: #4ade80;
+    background: rgba(58, 58, 60, 0.8);
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
+}
+
+.dogegg-search-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dogegg-search-btn {
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    background: #4ade80;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dogegg-search-btn:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+}
+
+.dogegg-search-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(74, 222, 128, 0.2);
+}
+
+.dogegg-search-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Dogegg搜索历史 */
+.dogegg-history-container {
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.dogegg-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.dogegg-history-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.dogegg-clear-history-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: rgba(74, 222, 128, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dogegg-clear-history-btn:hover {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.5);
+}
+
+.dogegg-history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.dogegg-history-item {
+    padding: 6px 12px;
+    font-size: 13px;
+    background: rgba(74, 222, 128, 0.1);
+    color: var(--apple-dark-text);
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dogegg-history-item i {
+    color: #4ade80;
+    font-size: 12px;
+}
+
+.dogegg-history-item:hover {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.4);
+    transform: translateY(-1px);
+}
+
+.dogegg-history-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.dogegg-history-page-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    background: rgba(74, 222, 128, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dogegg-history-page-btn:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.5);
+}
+
+.dogegg-history-page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.dogegg-history-page-info {
+    font-size: 12px;
+    color: rgba(235, 235, 245, 0.6);
+}
+
+.dogegg-tab-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.dogegg-tab-btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    border-radius: 8px;
+    background: rgba(74, 222, 128, 0.08);
+    color: #4ade80;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.dogegg-tab-btn:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.6);
+}
+
+.dogegg-tab-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 央视频道列表样式 */
+.cctv-channels-container {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: rgba(255, 193, 7, 0.08);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 12px;
+}
+
+.cctv-channels-title {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffc107;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.cctv-channels-title:hover {
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.channels-title-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.channels-toggle-btn {
+    background: rgba(255, 193, 7, 0.15);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+}
+
+.channels-toggle-btn:hover {
+    background: rgba(255, 193, 7, 0.25);
+}
+
+.channels-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.channels-toggle-btn i {
+    transition: transform 0.3s ease;
+}
+
+.channels-toggle-btn.collapsed i {
+    transform: rotate(180deg);
+}
+
+.cctv-channels-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.cctv-channels-grid.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-top: 0;
+}
+
+.cctv-channel-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    border-radius: 6px;
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cctv-channel-btn:hover:not(:disabled) {
+    background: rgba(255, 193, 7, 0.25);
+    border-color: rgba(255, 193, 7, 0.6);
+    transform: translateY(-1px);
+}
+
+.cctv-channel-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.cctv-channel-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 广东频道列表样式 */
+.guangdong-channels-container {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: rgba(255, 87, 34, 0.08);
+    border: 1px solid rgba(255, 87, 34, 0.3);
+    border-radius: 12px;
+}
+
+.guangdong-channels-title {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ff5722;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.guangdong-channels-title:hover {
+    background: rgba(255, 87, 34, 0.1);
+}
+
+.guangdong-channels-container .channels-toggle-btn {
+    background: rgba(255, 87, 34, 0.15);
+    border: 1px solid rgba(255, 87, 34, 0.3);
+    color: #ff5722;
+}
+
+.guangdong-channels-container .channels-toggle-btn:hover {
+    background: rgba(255, 87, 34, 0.25);
+}
+
+.guangdong-channels-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.guangdong-channels-grid.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-top: 0;
+}
+
+.guangdong-channel-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid rgba(255, 87, 34, 0.4);
+    border-radius: 6px;
+    background: rgba(255, 87, 34, 0.1);
+    color: #ff5722;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.guangdong-channel-btn:hover:not(:disabled) {
+    background: rgba(255, 87, 34, 0.25);
+    border-color: rgba(255, 87, 34, 0.6);
+    transform: translateY(-1px);
+}
+
+.guangdong-channel-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.guangdong-channel-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 @media (max-width: 480px) {
     .nav-controls-side {
         flex: 0 0 auto;
     }
-    
+
     .video-controls-side {
         min-width: 60px;
     }
-    
+
     .media-controls-container {
         gap: 8px;
     }
-    
+
     .controls-container {
         flex-direction: row;
         gap: 10px;

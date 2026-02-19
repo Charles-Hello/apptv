@@ -67,12 +67,35 @@ document.addEventListener('DOMContentLoaded', function () {
   const spaceBtn = document.getElementById('space-btn');
   const backBtn = document.getElementById('back-btn');
   const cctvliveBtn = document.getElementById('switch_cctv_live');
+  const cctvChannelsContainer = document.getElementById('cctv-channels-container');
+  const cctvChannelsGrid = document.getElementById('cctv-channels-grid');
+  const cctvToggleBtn = document.getElementById('cctv-toggle-btn');
+  const cctvChannelsTitle = document.querySelector('.cctv-channels-title');
+  const guangdongChannelsContainer = document.getElementById('guangdong-channels-container');
+  const guangdongChannelsGrid = document.getElementById('guangdong-channels-grid');
+  const guangdongToggleBtn = document.getElementById('guangdong-toggle-btn');
+  const guangdongChannelsTitle = document.querySelector('.guangdong-channels-title');
   const guangdongLiveBtn = document.getElementById('guangdong-live-btn');
   const bilibiliBtn = document.getElementById('bilibili-btn');
-  const bilibiliModeToggle = document.getElementById('bilibili-mode-toggle');
+  const lunaTvBtn = document.getElementById('lunatv-btn');
+  const modeLabel = document.getElementById('mode-label');
   const bilibiliSearchContainer = document.getElementById('bilibili-search-container');
   const bilibiliSearchInput = document.getElementById('bilibili-search-input');
   const bilibiliSearchBtn = document.getElementById('bilibili-search-btn');
+  const dogeggSearchContainer = document.getElementById('dogegg-search-container');
+  const dogeggSearchInput = document.getElementById('dogegg-search-input');
+  const dogeggSearchBtn = document.getElementById('dogegg-search-btn');
+  const bilibiliHistoryBtn = document.getElementById('bilibili-history-btn');
+  const bilibiliFavoritesBtn = document.getElementById('bilibili-favorites-btn');
+  const dogeggTabEpisodeBtn = document.getElementById('dogegg-tab-episode-btn');
+  const dogeggTabSourceBtn = document.getElementById('dogegg-tab-source-btn');
+  const dogeggHistoryContainer = document.getElementById('dogegg-history-container');
+  const dogeggHistoryList = document.getElementById('dogegg-history-list');
+  const dogeggClearHistoryBtn = document.getElementById('dogegg-clear-history-btn');
+  const dogeggHistoryPrevBtn = document.getElementById('dogegg-history-prev-btn');
+  const dogeggHistoryNextBtn = document.getElementById('dogegg-history-next-btn');
+  const dogeggHistoryPageInfo = document.getElementById('dogegg-history-page-info');
+  const dogeggHistoryPagination = document.getElementById('dogegg-history-pagination');
   const searchHistoryContainer = document.getElementById('search-history-container');
   const searchHistoryList = document.getElementById('search-history-list');
   const clearHistoryBtn = document.getElementById('clear-history-btn');
@@ -103,11 +126,86 @@ document.addEventListener('DOMContentLoaded', function () {
   let isConnected = false;
   let isMuted = false; // 添加静音状态标志
   let isBilibiliMode = false; // B站模式状态
+  let isBilibiliHistoryMode = false; // B站历史页子模式
+  let isDogeggMode = false; // Dogegg模式状态
+  let isCCTVMode = false; // 央视直播模式状态
+  let isGuangdongMode = false; // 广东直播模式状态
+
+  // 央视频道列表
+  const cctvChannels = [
+    { name: "CCTV-1 综合", url: "https://tv.cctv.com/live/cctv1/" },
+    { name: "CCTV-2 财经", url: "https://tv.cctv.com/live/cctv2/" },
+    { name: "CCTV-3 综艺", url: "https://tv.cctv.com/live/cctv3/" },
+    { name: "CCTV-4 中文国际（亚）", url: "https://tv.cctv.com/live/cctv4/" },
+    { name: "CCTV-5 体育", url: "https://tv.cctv.com/live/cctv5/" },
+    { name: "CCTV-5+ 体育赛事", url: "https://tv.cctv.com/live/cctv5plus/" },
+    { name: "CCTV-6 电影", url: "https://tv.cctv.com/live/cctv6/" },
+    { name: "CCTV-7 国防军事", url: "https://tv.cctv.com/live/cctv7/" },
+    { name: "CCTV-8 电视剧", url: "https://tv.cctv.com/live/cctv8/" },
+    { name: "CCTV-9 纪录", url: "https://tv.cctv.com/live/cctvjilu/" },
+    { name: "CCTV-10 科教", url: "https://tv.cctv.com/live/cctv10/" },
+    { name: "CCTV-11 戏曲", url: "https://tv.cctv.com/live/cctv11/" },
+    { name: "CCTV-12 社会与法", url: "https://tv.cctv.com/live/cctv12/" },
+    { name: "CCTV-13 新闻", url: "https://tv.cctv.com/live/cctv13/" },
+    { name: "CCTV-14 少儿", url: "https://tv.cctv.com/live/cctvchild/" },
+    { name: "CCTV-15 音乐", url: "https://tv.cctv.com/live/cctv15/" },
+    { name: "CCTV-16 奥林匹克", url: "https://tv.cctv.com/live/cctv16/" },
+    { name: "CCTV-17 农业农村", url: "https://tv.cctv.com/live/cctv17/" },
+    { name: "CCTV-4 中文国际（欧）", url: "https://tv.cctv.com/live/cctveurope/index.shtml" },
+    { name: "CCTV-4 中文国际（美）", url: "https://tv.cctv.com/live/cctvamerica/" }
+  ];
+
+  // 广东频道列表
+  const guangdongChannels = [
+    { name: "广东卫视", url: "https://www.gdtv.cn/tvChannelDetail/43" },
+    { name: "广东珠江", url: "https://www.gdtv.cn/tvChannelDetail/44" },
+    { name: "广东新闻", url: "https://www.gdtv.cn/tvChannelDetail/45" },
+    { name: "广东民生", url: "https://www.gdtv.cn/tvChannelDetail/48" },
+    { name: "广东体育", url: "https://www.gdtv.cn/tvChannelDetail/47" },
+    { name: "大湾区卫视", url: "https://www.gdtv.cn/tvChannelDetail/51" },
+    { name: "大湾区卫视（海外版）", url: "https://www.gdtv.cn/tvChannelDetail/46" },
+    { name: "广东影视", url: "https://www.gdtv.cn/tvChannelDetail/53" },
+    { name: "4K超高清", url: "https://www.gdtv.cn/tvChannelDetail/16" },
+    { name: "广东少儿", url: "https://www.gdtv.cn/tvChannelDetail/54" },
+    { name: "嘉佳卡通", url: "https://www.gdtv.cn/tvChannelDetail/66" },
+    { name: "南方购物", url: "https://www.gdtv.cn/tvChannelDetail/42" },
+    { name: "岭南戏曲", url: "https://www.gdtv.cn/tvChannelDetail/15" },
+    { name: "广东移动", url: "https://www.gdtv.cn/tvChannelDetail/74" },
+    { name: "现代教育", url: "https://www.gdtv.cn/tvChannelDetail/111" },
+    { name: "广东台经典剧", url: "https://www.gdtv.cn/tvChannelDetail/100" },
+    { name: "纪录片", url: "https://www.gdtv.cn/tvChannelDetail/94" },
+    { name: "GRTN健康频道", url: "https://www.gdtv.cn/tvChannelDetail/99" },
+    { name: "GRTN文化频道", url: "https://www.gdtv.cn/tvChannelDetail/75" },
+    { name: "GRTN生活频道", url: "https://www.gdtv.cn/tvChannelDetail/102" }
+  ];
+
+  // 更新模式标签显示
+  function updateModeLabel() {
+    if (!modeLabel) return;
+
+    modeLabel.classList.remove('bilibili-active', 'dogegg-active');
+
+    if (isBilibiliMode) {
+      modeLabel.textContent = 'B站模式';
+      modeLabel.classList.add('bilibili-active');
+    } else if (isDogeggMode) {
+      modeLabel.textContent = 'Dogegg模式';
+      modeLabel.classList.add('dogegg-active');
+    } else if (isCCTVMode) {
+      modeLabel.textContent = '央视直播';
+    } else if (isGuangdongMode) {
+      modeLabel.textContent = '广东直播';
+    } else {
+      modeLabel.textContent = '普通模式';
+    }
+  }
 
   // 搜索历史管理
   const SEARCH_HISTORY_KEY = 'bilibili_search_history';
+  const DOGEGG_HISTORY_KEY = 'dogegg_search_history';
   const ITEMS_PER_PAGE = 3;
   let currentHistoryPage = 1;
+  let currentDogeggHistoryPage = 1;
 
   // 获取搜索历史
   function getSearchHistory() {
@@ -240,6 +338,138 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  // Dogegg搜索历史管理
+  // 获取Dogegg搜索历史
+  function getDogeggSearchHistory() {
+    try {
+      const history = localStorage.getItem(DOGEGG_HISTORY_KEY);
+      return history ? JSON.parse(history) : [];
+    } catch (e) {
+      console.error('读取Dogegg搜索历史失败:', e);
+      return [];
+    }
+  }
+
+  // 保存Dogegg搜索历史
+  function saveDogeggSearchHistory(history) {
+    try {
+      localStorage.setItem(DOGEGG_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {
+      console.error('保存Dogegg搜索历史失败:', e);
+    }
+  }
+
+  // 添加Dogegg搜索记录
+  function addDogeggSearchHistory(keyword) {
+    if (!keyword || !keyword.trim()) return;
+
+    let history = getDogeggSearchHistory();
+
+    // 移除重复项（如果存在）
+    history = history.filter(item => item !== keyword);
+
+    // 添加到开头
+    history.unshift(keyword);
+
+    // 保存所有历史（不限制数量）
+    saveDogeggSearchHistory(history);
+
+    // 重置到第一页
+    currentDogeggHistoryPage = 1;
+
+    // 更新显示
+    renderDogeggSearchHistory();
+  }
+
+  // 清空Dogegg搜索历史
+  function clearDogeggSearchHistory() {
+    localStorage.removeItem(DOGEGG_HISTORY_KEY);
+    currentDogeggHistoryPage = 1;
+    renderDogeggSearchHistory();
+    statusText.textContent = 'Dogegg搜索历史已清空';
+  }
+
+  // 渲染Dogegg搜索历史
+  function renderDogeggSearchHistory() {
+    if (!dogeggHistoryList) return;
+
+    const history = getDogeggSearchHistory();
+
+    // 如果没有历史记录，隐藏容器
+    if (history.length === 0) {
+      if (dogeggHistoryContainer) {
+        dogeggHistoryContainer.style.display = 'none';
+      }
+      return;
+    }
+
+    // 显示容器
+    if (dogeggHistoryContainer) {
+      dogeggHistoryContainer.style.display = 'block';
+    }
+
+    // 计算分页
+    const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
+    const startIndex = (currentDogeggHistoryPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const pageHistory = history.slice(startIndex, endIndex);
+
+    // 清空列表
+    dogeggHistoryList.innerHTML = '';
+
+    // 渲染当前页的历史记录
+    pageHistory.forEach(keyword => {
+      const item = document.createElement('div');
+      item.className = 'dogegg-history-item';
+      item.innerHTML = `<i class="fas fa-history"></i><span>${keyword}</span>`;
+      item.addEventListener('click', function() {
+        if (dogeggSearchInput) {
+          dogeggSearchInput.value = keyword;
+        }
+        // 直接触发搜索
+        performDogeggSearch(keyword);
+      });
+      dogeggHistoryList.appendChild(item);
+    });
+
+    // 更新分页控制
+    if (dogeggHistoryPagination && totalPages > 1) {
+      dogeggHistoryPagination.style.display = 'flex';
+      if (dogeggHistoryPageInfo) {
+        dogeggHistoryPageInfo.textContent = `${currentDogeggHistoryPage}/${totalPages}`;
+      }
+      if (dogeggHistoryPrevBtn) {
+        dogeggHistoryPrevBtn.disabled = currentDogeggHistoryPage === 1;
+      }
+      if (dogeggHistoryNextBtn) {
+        dogeggHistoryNextBtn.disabled = currentDogeggHistoryPage === totalPages;
+      }
+    } else {
+      if (dogeggHistoryPagination) {
+        dogeggHistoryPagination.style.display = 'none';
+      }
+    }
+  }
+
+  // 执行Dogegg搜索（提取为独立函数）
+  function performDogeggSearch(keyword) {
+    if (!keyword || !keyword.trim()) {
+      statusText.textContent = '请输入搜索关键词';
+      return;
+    }
+
+    if (socket && socket.connected) {
+      console.log('发送Dogegg搜索请求:', keyword);
+      socket.emit('dogegg_search', { keyword: keyword });
+      statusText.textContent = `Dogegg搜索: ${keyword}`;
+
+      // 添加到搜索历史
+      addDogeggSearchHistory(keyword);
+    } else {
+      statusText.textContent = 'WebSocket未连接，无法搜索';
+    }
+  }
+
 
   // 更新连接状态指示器
   function updateConnectionIndicator(status) {
@@ -280,8 +510,25 @@ document.addEventListener('DOMContentLoaded', function () {
     if (cctvliveBtn) cctvliveBtn.disabled = !enable;
     if (guangdongLiveBtn) guangdongLiveBtn.disabled = !enable;
     if (bilibiliBtn) bilibiliBtn.disabled = !enable;
+    if (lunaTvBtn) lunaTvBtn.disabled = !enable;
     if (bilibiliSearchInput) bilibiliSearchInput.disabled = !enable;
     if (bilibiliSearchBtn) bilibiliSearchBtn.disabled = !enable;
+    if (bilibiliHistoryBtn) bilibiliHistoryBtn.disabled = !enable;
+    if (bilibiliFavoritesBtn) bilibiliFavoritesBtn.disabled = !enable;
+    if (dogeggSearchInput) dogeggSearchInput.disabled = !enable;
+    if (dogeggSearchBtn) dogeggSearchBtn.disabled = !enable;
+    if (dogeggTabEpisodeBtn) dogeggTabEpisodeBtn.disabled = !enable;
+    if (dogeggTabSourceBtn) dogeggTabSourceBtn.disabled = !enable;
+    // 央视频道按钮
+    if (cctvChannelsGrid) {
+      const channelBtns = cctvChannelsGrid.querySelectorAll('.cctv-channel-btn');
+      channelBtns.forEach(btn => btn.disabled = !enable);
+    }
+    // 广东频道按钮
+    if (guangdongChannelsGrid) {
+      const channelBtns = guangdongChannelsGrid.querySelectorAll('.guangdong-channel-btn');
+      channelBtns.forEach(btn => btn.disabled = !enable);
+    }
     if (muteBtn) muteBtn.disabled = !enable;
     if (toggleHdrBtn) toggleHdrBtn.disabled = !enable; // 添加HDR按钮
 
@@ -354,6 +601,7 @@ document.addEventListener('DOMContentLoaded', function () {
         statusText.textContent = 'WebSocket已连接';
         updateConnectionIndicator('connected');
         connectBtn.textContent = '断开';
+        updateModeLabel(); // 初始化模式标签显示
 
         // 启用按钮
         enableButtons(true);
@@ -396,6 +644,85 @@ document.addEventListener('DOMContentLoaded', function () {
       // 错误处理
       socket.on('error', function (data) {
         statusText.textContent = `错误: ${data.error || '未知错误'}`;
+      });
+
+      // 监听模式状态更新（由油猴脚本回传）
+      socket.on('mode_update', function (data) {
+        const mode = data.mode;
+        console.log('收到模式更新:', mode);
+
+        // 更新模式状态
+        if (mode === 'bilibili') {
+          isBilibiliMode = true;
+          isDogeggMode = false;
+          isCCTVMode = false;
+          isGuangdongMode = false;
+        } else if (mode === 'dogegg') {
+          isBilibiliMode = false;
+          isDogeggMode = true;
+          isCCTVMode = false;
+          isGuangdongMode = false;
+        } else if (mode === 'cctv') {
+          isBilibiliMode = false;
+          isDogeggMode = false;
+          isCCTVMode = true;
+          isGuangdongMode = false;
+        } else if (mode === 'guangdong') {
+          isBilibiliMode = false;
+          isDogeggMode = false;
+          isCCTVMode = false;
+          isGuangdongMode = true;
+        } else {
+          isBilibiliMode = false;
+          isDogeggMode = false;
+          isCCTVMode = false;
+          isGuangdongMode = false;
+        }
+
+        // 更新UI
+        const controlsCard = document.querySelector('.controls-card');
+        if (controlsCard) {
+          controlsCard.classList.remove('bilibili-mode-active', 'dogegg-mode-active');
+          if (isBilibiliMode) {
+            controlsCard.classList.add('bilibili-mode-active');
+            if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'block';
+            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
+            if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
+            if (backBtn) backBtn.style.display = 'inline-flex';
+          } else if (isDogeggMode) {
+            controlsCard.classList.add('dogegg-mode-active');
+            if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
+            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'block';
+            if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
+            if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
+            if (backBtn) backBtn.style.display = 'inline-flex';
+          } else if (isCCTVMode) {
+            // 央视模式：显示央视频道列表
+            if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
+            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'block';
+            if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
+            if (backBtn) backBtn.style.display = 'none';
+          } else if (isGuangdongMode) {
+            // 广东模式：显示广东频道列表
+            if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
+            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
+            if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'block';
+            if (backBtn) backBtn.style.display = 'none';
+          } else {
+            // 普通模式
+            if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
+            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
+            if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
+            if (backBtn) backBtn.style.display = 'none';
+          }
+        }
+
+        // 更新标签显示
+        updateModeLabel();
       });
 
       // 状态更新
@@ -514,6 +841,25 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
           statusText.textContent = `B站搜索失败: ${data.message || '未知错误'}`;
         }
+      });
+
+      socket.on('dogegg_search_response', function (data) {
+        console.log('收到Dogegg搜索响应:', data);
+        if (data.success) {
+          statusText.textContent = data.message || `Dogegg搜索成功: ${data.keyword}`;
+          // 清空搜索框
+          if (dogeggSearchInput) {
+            dogeggSearchInput.value = '';
+          }
+        } else {
+          statusText.textContent = `Dogegg搜索失败: ${data.message || '未知错误'}`;
+        }
+      });
+
+      // B站子模式更新（例如进入历史页）
+      socket.on('bilibili_sub_mode_update', function (data) {
+        isBilibiliHistoryMode = (data.sub_mode === 'history');
+        console.log('B站子模式:', data.sub_mode);
       });
 
     } catch (e) {
@@ -699,8 +1045,16 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowUpBtn) {
     arrowUpBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('key_press', { direction: 'up' });
-        statusText.textContent = '发送方向上键命令';
+        if (isDogeggMode) {
+          socket.emit('dogegg_navigate', { direction: 'up' });
+          statusText.textContent = 'Dogegg: 上';
+        } else if (isBilibiliMode && isBilibiliHistoryMode) {
+          socket.emit('bilibili_history_navigate', { direction: 'up' });
+          statusText.textContent = 'B站历史: 上';
+        } else {
+          socket.emit('key_press', { direction: 'up' });
+          statusText.textContent = '发送方向上键命令';
+        }
       } else {
         statusText.textContent = 'WebSocket未连接，无法发送命令';
       }
@@ -711,8 +1065,16 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowDownBtn) {
     arrowDownBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('key_press', { direction: 'down' });
-        statusText.textContent = '发送方向下键命令';
+        if (isDogeggMode) {
+          socket.emit('dogegg_navigate', { direction: 'down' });
+          statusText.textContent = 'Dogegg: 下';
+        } else if (isBilibiliMode && isBilibiliHistoryMode) {
+          socket.emit('bilibili_history_navigate', { direction: 'down' });
+          statusText.textContent = 'B站历史: 下';
+        } else {
+          socket.emit('key_press', { direction: 'down' });
+          statusText.textContent = '发送方向下键命令';
+        }
       } else {
         statusText.textContent = 'WebSocket未连接，无法发送命令';
       }
@@ -723,8 +1085,13 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowLeftBtn) {
     arrowLeftBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('key_press', { direction: 'left' });
-        statusText.textContent = '发送方向左键命令';
+        if (isDogeggMode) {
+          socket.emit('dogegg_navigate', { direction: 'left' });
+          statusText.textContent = 'Dogegg: 左';
+        } else {
+          socket.emit('key_press', { direction: 'left' });
+          statusText.textContent = '发送方向左键命令';
+        }
       } else {
         statusText.textContent = 'WebSocket未连接，无法发送命令';
       }
@@ -735,8 +1102,13 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowRightBtn) {
     arrowRightBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('key_press', { direction: 'right' });
-        statusText.textContent = '发送方向右键命令';
+        if (isDogeggMode) {
+          socket.emit('dogegg_navigate', { direction: 'right' });
+          statusText.textContent = 'Dogegg: 右';
+        } else {
+          socket.emit('key_press', { direction: 'right' });
+          statusText.textContent = '发送方向右键命令';
+        }
       } else {
         statusText.textContent = 'WebSocket未连接，无法发送命令';
       }
@@ -759,10 +1131,18 @@ document.addEventListener('DOMContentLoaded', function () {
   if (spaceBtn) {
     spaceBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isBilibiliMode) {
+        if (isBilibiliMode && isBilibiliHistoryMode) {
+          // B站历史模式：点击选中项
+          socket.emit('bilibili_history_navigate', { direction: 'click' });
+          statusText.textContent = '打开历史记录';
+        } else if (isBilibiliMode) {
           // B站模式：发送 Enter 键
           socket.emit('key_press', { direction: 'enter' });
           statusText.textContent = '发送Enter键命令';
+        } else if (isDogeggMode) {
+          // Dogegg模式：发送点击命令
+          socket.emit('dogegg_click');
+          statusText.textContent = '发送点击命令';
         } else {
           // 普通模式：发送空格键
           socket.emit('play_pause');
@@ -774,16 +1154,18 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // B站首页按钮
+  // 首页按钮（根据模式决定跳转目标）
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      console.log('首页按钮被点击');
       if (socket && socket.connected) {
-        console.log('发送 bilibili_home 事件到服务器');
-        socket.emit('bilibili_home');
-        statusText.textContent = '跳转B站首页';
+        if (isDogeggMode) {
+          socket.emit('dogegg_home');
+          statusText.textContent = '跳转Dogegg首页';
+        } else {
+          socket.emit('bilibili_home');
+          statusText.textContent = '跳转B站首页';
+        }
       } else {
-        console.log('WebSocket未连接');
         statusText.textContent = 'WebSocket未连接，无法跳转';
       }
     });
@@ -842,7 +1224,7 @@ document.addEventListener('DOMContentLoaded', function () {
     cctvliveBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
         socket.emit('switch_cctv_live');
-        statusText.textContent = '切换到电影桌面';
+        statusText.textContent = '切换到中央直播';
       } else {
         statusText.textContent = 'WebSocket未连接，无法切换桌面';
       }
@@ -853,14 +1235,14 @@ document.addEventListener('DOMContentLoaded', function () {
     guangdongLiveBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
         socket.emit('switch_guangdong_live');
-        statusText.textContent = '切换到电影桌面';
+        statusText.textContent = '切换到广东直播';
       } else {
         statusText.textContent = 'WebSocket未连接，无法切换桌面';
       }
     });
   }
 
-  // 哔哩哔哩按钮
+  // 哔哩哔哩按钮 - 只发送命令，模式由油猴脚本回传
   if (bilibiliBtn) {
     bilibiliBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
@@ -872,45 +1254,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // B站模式开关
-  if (bilibiliModeToggle) {
-    bilibiliModeToggle.addEventListener('change', function () {
-      isBilibiliMode = this.checked;
-      const controlsCard = document.querySelector('.controls-card');
-
-      if (isBilibiliMode) {
-        controlsCard && controlsCard.classList.add('bilibili-mode-active');
-        // 显示搜索框
-        if (bilibiliSearchContainer) {
-          bilibiliSearchContainer.style.display = 'block';
-        }
-        // 显示首页按钮
-        if (backBtn) {
-          backBtn.style.display = 'inline-flex';
-        }
-        // 更新空格按钮的 aria-label
-        if (spaceBtn) {
-          spaceBtn.setAttribute('aria-label', 'Enter键');
-        }
-        statusText.textContent = 'B站模式已开启';
-
-        // 加载搜索历史
-        renderSearchHistory();
+  // LunaTV 按钮 - 只发送命令，模式由油猴脚本回传
+  if (lunaTvBtn) {
+    lunaTvBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('dogegg_home');
+        statusText.textContent = '跳转到 LunaTV';
       } else {
-        controlsCard && controlsCard.classList.remove('bilibili-mode-active');
-        // 隐藏搜索框
-        if (bilibiliSearchContainer) {
-          bilibiliSearchContainer.style.display = 'none';
-        }
-        // 隐藏首页按钮
-        if (backBtn) {
-          backBtn.style.display = 'none';
-        }
-        // 恢复空格按钮的 aria-label
-        if (spaceBtn) {
-          spaceBtn.setAttribute('aria-label', '空格键');
-        }
-        statusText.textContent = 'B站模式已关闭';
+        statusText.textContent = 'WebSocket未连接，无法跳转';
       }
     });
   }
@@ -929,6 +1280,54 @@ document.addEventListener('DOMContentLoaded', function () {
       if (e.key === 'Enter') {
         const keyword = bilibiliSearchInput.value.trim();
         performSearch(keyword);
+      }
+    });
+  }
+
+  // Dogegg搜索按钮
+  if (dogeggSearchBtn) {
+    dogeggSearchBtn.addEventListener('click', function () {
+      const keyword = dogeggSearchInput ? dogeggSearchInput.value.trim() : '';
+      performDogeggSearch(keyword);
+    });
+  }
+
+  // Dogegg搜索框支持回车键
+  if (dogeggSearchInput) {
+    dogeggSearchInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        const keyword = dogeggSearchInput.value.trim();
+        performDogeggSearch(keyword);
+      }
+    });
+  }
+
+  // 清空Dogegg搜索历史按钮
+  if (dogeggClearHistoryBtn) {
+    dogeggClearHistoryBtn.addEventListener('click', function() {
+      if (confirm('确定要清空所有Dogegg搜索历史吗？')) {
+        clearDogeggSearchHistory();
+      }
+    });
+  }
+
+  // Dogegg历史记录翻页按钮
+  if (dogeggHistoryPrevBtn) {
+    dogeggHistoryPrevBtn.addEventListener('click', function() {
+      if (currentDogeggHistoryPage > 1) {
+        currentDogeggHistoryPage--;
+        renderDogeggSearchHistory();
+      }
+    });
+  }
+
+  if (dogeggHistoryNextBtn) {
+    dogeggHistoryNextBtn.addEventListener('click', function() {
+      const history = getDogeggSearchHistory();
+      const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
+      if (currentDogeggHistoryPage < totalPages) {
+        currentDogeggHistoryPage++;
+        renderDogeggSearchHistory();
       }
     });
   }
@@ -1065,4 +1464,144 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
-}); 
+
+  // B站观看历史按钮
+  if (bilibiliHistoryBtn) {
+    bilibiliHistoryBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('bilibili_history');
+        statusText.textContent = '跳转B站观看历史';
+      }
+    });
+  }
+
+  // B站我的收藏按钮
+  if (bilibiliFavoritesBtn) {
+    bilibiliFavoritesBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('bilibili_favorites');
+        statusText.textContent = '跳转B站我的收藏';
+      }
+    });
+  }
+
+  // Dogegg 选集/换源 Tab按钮
+  if (dogeggTabEpisodeBtn) {
+    dogeggTabEpisodeBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('dogegg_tab', { tab: '选集' });
+      }
+    });
+  }
+
+  if (dogeggTabSourceBtn) {
+    dogeggTabSourceBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('dogegg_tab', { tab: '换源' });
+      }
+    });
+  }
+
+  // 初始化渲染搜索历史
+  renderSearchHistory();
+  renderDogeggSearchHistory();
+
+  // 初始化央视频道按钮
+  function initCCTVChannels() {
+    if (!cctvChannelsGrid) return;
+
+    cctvChannelsGrid.innerHTML = '';
+    cctvChannels.forEach(channel => {
+      const btn = document.createElement('button');
+      btn.className = 'cctv-channel-btn';
+      btn.textContent = channel.name;
+      btn.disabled = true;
+      btn.addEventListener('click', function() {
+        if (socket && socket.connected) {
+          socket.emit('cctv_channel', { url: channel.url, name: channel.name });
+          statusText.textContent = `切换到 ${channel.name}`;
+        }
+      });
+      cctvChannelsGrid.appendChild(btn);
+    });
+  }
+
+  initCCTVChannels();
+
+  // 初始化广东频道按钮
+  function initGuangdongChannels() {
+    if (!guangdongChannelsGrid) return;
+
+    guangdongChannelsGrid.innerHTML = '';
+    guangdongChannels.forEach(channel => {
+      const btn = document.createElement('button');
+      btn.className = 'guangdong-channel-btn';
+      btn.textContent = channel.name;
+      btn.disabled = true;
+      btn.addEventListener('click', function() {
+        if (socket && socket.connected) {
+          socket.emit('guangdong_channel', { url: channel.url, name: channel.name });
+          statusText.textContent = `切换到 ${channel.name}`;
+        }
+      });
+      guangdongChannelsGrid.appendChild(btn);
+    });
+  }
+
+  initGuangdongChannels();
+
+  // 频道列表展开/收缩功能
+  const CCTV_COLLAPSED_KEY = 'cctvChannelsCollapsed';
+  const GUANGDONG_COLLAPSED_KEY = 'guangdongChannelsCollapsed';
+
+  // 恢复央视频道展开/收缩状态
+  function restoreCCTVCollapseState() {
+    const isCollapsed = localStorage.getItem(CCTV_COLLAPSED_KEY) === 'true';
+    if (isCollapsed && cctvChannelsGrid && cctvToggleBtn) {
+      cctvChannelsGrid.classList.add('collapsed');
+      cctvToggleBtn.classList.add('collapsed');
+    }
+  }
+
+  // 恢复广东频道展开/收缩状态
+  function restoreGuangdongCollapseState() {
+    const isCollapsed = localStorage.getItem(GUANGDONG_COLLAPSED_KEY) === 'true';
+    if (isCollapsed && guangdongChannelsGrid && guangdongToggleBtn) {
+      guangdongChannelsGrid.classList.add('collapsed');
+      guangdongToggleBtn.classList.add('collapsed');
+    }
+  }
+
+  // 切换央视频道展开/收缩
+  function toggleCCTVChannels() {
+    if (!cctvChannelsGrid || !cctvToggleBtn) return;
+
+    const isCollapsed = cctvChannelsGrid.classList.toggle('collapsed');
+    cctvToggleBtn.classList.toggle('collapsed');
+    localStorage.setItem(CCTV_COLLAPSED_KEY, isCollapsed);
+  }
+
+  // 切换广东频道展开/收缩
+  function toggleGuangdongChannels() {
+    if (!guangdongChannelsGrid || !guangdongToggleBtn) return;
+
+    const isCollapsed = guangdongChannelsGrid.classList.toggle('collapsed');
+    guangdongToggleBtn.classList.toggle('collapsed');
+    localStorage.setItem(GUANGDONG_COLLAPSED_KEY, isCollapsed);
+  }
+
+  // 绑定事件监听器 - 整个标题都可以点击
+  if (cctvChannelsTitle) {
+    cctvChannelsTitle.addEventListener('click', toggleCCTVChannels);
+    cctvChannelsTitle.style.cursor = 'pointer';
+  }
+
+  if (guangdongChannelsTitle) {
+    guangdongChannelsTitle.addEventListener('click', toggleGuangdongChannels);
+    guangdongChannelsTitle.style.cursor = 'pointer';
+  }
+
+  // 恢复状态
+  restoreCCTVCollapseState();
+  restoreGuangdongCollapseState();
+});

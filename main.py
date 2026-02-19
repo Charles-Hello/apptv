@@ -29,6 +29,9 @@ screen_wake_status = {
     "duration_minutes": 0
 }
 
+# 当前模式状态管理（由油猴脚本回传）
+current_mode = "normal"  # normal / bilibili / dogegg
+
 # 记录今天是否已经有用户触发了屏幕唤醒
 first_user_wake_triggered = False
 first_user_wake_date = None
@@ -373,27 +376,31 @@ def get_wake_status():
 @socketio.on('connect')
 def handle_connect():
     """客户端连接时的处理"""
-    global first_user_wake_triggered, first_user_wake_date
-    
+    global first_user_wake_triggered, first_user_wake_date, current_mode
+
     # 获取当前状态
     current_volume = get_current_volume()
     wake_status = get_wake_status()
-    
+
     emit('status_update', {
         'status': '已连接',
         'current_volume': current_volume,
         'hdr_status': hdr_status["is_on"]  # 添加HDR状态
     })
-    
+
     # 发送当前屏幕唤醒状态
     emit('wake_status_update', wake_status)
-    print("客户端已连接")
-    
+
+    # 发送当前模式状态（新客户端连接时同步模式）
+    emit('mode_update', {"mode": current_mode})
+
+    print(f"客户端已连接，当前模式: {current_mode}")
+
     # 修改逻辑：只要屏幕未处于唤醒状态，无论是哪个用户，都自动唤醒屏幕
     if not wake_status["is_active"]:
         # 唤醒屏幕 (2小时)
         wake_status = wake_screen(120)
-        
+
         # 向当前客户端发送唤醒成功的响应
         emit('wake_screen_response', {
             "success": True,
@@ -401,7 +408,7 @@ def handle_connect():
             "wake_status": wake_status,
             "auto_triggered": True
         })
-        
+
         # 向所有客户端广播唤醒状态
         socketio.emit('wake_status_update', wake_status)
         print("用户连接触发屏幕唤醒")
@@ -561,6 +568,38 @@ def handle_switch_desktop():
                   "timestamp": int(__import__('time').time())
               })
 
+@socketio.on('cctv_channel')
+def handle_cctv_channel(data):
+    """处理央视频道切换请求"""
+    url = data.get('url')
+    name = data.get('name', '')
+    if not url:
+        emit('error', {"error": "缺少频道URL"})
+        return
+    print(f"收到央视频道切换请求: {name} -> {url}")
+    socketio.emit('cctv_channel_command', {
+        "url": url,
+        "name": name,
+        "timestamp": int(__import__('time').time() * 1000)
+    })
+    emit('cctv_channel_response', {"success": True, "name": name})
+
+@socketio.on('guangdong_channel')
+def handle_guangdong_channel(data):
+    """处理广东频道切换请求"""
+    url = data.get('url')
+    name = data.get('name', '')
+    if not url:
+        emit('error', {"error": "缺少频道URL"})
+        return
+    print(f"收到广东频道切换请求: {name} -> {url}")
+    socketio.emit('guangdong_channel_command', {
+        "url": url,
+        "name": name,
+        "timestamp": int(__import__('time').time() * 1000)
+    })
+    emit('guangdong_channel_response', {"success": True, "name": name})
+
 @socketio.on('switch_bilibili')
 def handle_switch_bilibili():
     """处理切换到哔哩哔哩的请求"""
@@ -609,6 +648,130 @@ def handle_bilibili_home():
         "success": True,
         "message": "已发送B站首页命令"
     })
+
+
+@socketio.on('bilibili_history')
+def handle_bilibili_history():
+    """处理B站观看历史请求"""
+    print("收到B站观看历史请求")
+    socketio.emit('bilibili_history_command', {
+        "url": "https://www.bilibili.com/?page=History",
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('bilibili_history_response', {"success": True})
+
+@socketio.on('bilibili_favorites')
+def handle_bilibili_favorites():
+    """处理B站我的收藏请求"""
+    print("收到B站我的收藏请求")
+    socketio.emit('bilibili_favorites_command', {
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('bilibili_favorites_response', {"success": True})
+
+@socketio.on('bilibili_history_navigate')
+def handle_bilibili_history_navigate(data):
+    """处理B站历史页导航请求"""
+    direction = data.get('direction')
+    if direction not in ['up', 'down', 'click']:
+        emit('error', {"error": "无效方向"})
+        return
+    print(f"收到B站历史导航请求: {direction}")
+    socketio.emit('bilibili_history_navigate_command', {
+        "direction": direction,
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('bilibili_history_navigate_response', {"success": True})
+
+@socketio.on('bilibili_sub_mode')
+def handle_bilibili_sub_mode(data):
+    """中继B站子模式状态到前端"""
+    sub_mode = data.get('sub_mode', 'normal')
+    socketio.emit('bilibili_sub_mode_update', {"sub_mode": sub_mode})
+
+@socketio.on('dogegg_navigate')
+def handle_dogegg_navigate(data):
+    """处理Dogegg方向键导航请求"""
+    direction = data.get('direction')
+    if direction not in ['up', 'down', 'left', 'right']:
+        emit('error', {"error": "无效方向"})
+        return
+
+    print(f"收到Dogegg导航请求: {direction}")
+    socketio.emit('dogegg_navigate_command', {
+        "direction": direction,
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('dogegg_navigate_response', {"success": True, "direction": direction})
+
+@socketio.on('dogegg_click')
+def handle_dogegg_click():
+    """处理Dogegg点击请求"""
+    print("收到Dogegg点击请求")
+    socketio.emit('dogegg_click_command', {
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('dogegg_click_response', {"success": True})
+
+@socketio.on('dogegg_home')
+def handle_dogegg_home():
+    """处理Dogegg首页请求"""
+    print("收到Dogegg首页请求")
+    socketio.emit('dogegg_home_command', {
+        "url": "https://tv.dogegg.online/douban?type=movie",
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('dogegg_home_response', {"success": True})
+
+@socketio.on('dogegg_search')
+def handle_dogegg_search(data):
+    """处理Dogegg搜索请求"""
+    keyword = data.get('keyword', '').strip()
+
+    if not keyword:
+        emit('error', {"error": "搜索关键词不能为空"})
+        return
+
+    print(f"收到Dogegg搜索请求，关键词: {keyword}")
+
+    # 广播搜索命令给所有客户端（油猴插件）
+    socketio.emit('dogegg_search_command', {
+        "keyword": keyword,
+        "timestamp": int(time.time() * 1000)
+    })
+
+    emit('dogegg_search_response', {
+        "success": True,
+        "keyword": keyword,
+        "message": f"Dogegg搜索命令已发送: {keyword}"
+    })
+
+@socketio.on('dogegg_tab')
+def handle_dogegg_tab(data):
+    """处理Dogegg Tab切换请求（选集/换源）"""
+    tab = data.get('tab', '换源')
+    if tab not in ['选集', '换源']:
+        emit('error', {"error": "无效的Tab名称"})
+        return
+    print(f"收到Dogegg Tab切换请求: {tab}")
+    socketio.emit('dogegg_tab_command', {
+        "tab": tab,
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('dogegg_tab_response', {"success": True, "tab": tab})
+
+@socketio.on('report_mode')
+def handle_report_mode(data):
+    """接收油猴脚本回传的模式状态"""
+    global current_mode
+    mode = data.get('mode', 'normal')
+
+    # 更新全局模式状态
+    current_mode = mode
+    print(f"收到模式状态回传: {mode}，已更新服务器状态")
+
+    # 广播给所有前端客户端（包括新连接的）
+    socketio.emit('mode_update', {"mode": mode})
 
 @socketio.on('wake_screen')
 def handle_wake_screen(data):
