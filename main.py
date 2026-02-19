@@ -30,7 +30,7 @@ screen_wake_status = {
 }
 
 # 当前模式状态管理（由油猴脚本回传）
-current_mode = "normal"  # normal / bilibili / dogegg
+current_mode = "normal"  # normal / bilibili / lunatv
 
 # 记录今天是否已经有用户触发了屏幕唤醒
 first_user_wake_triggered = False
@@ -689,76 +689,76 @@ def handle_bilibili_sub_mode(data):
     sub_mode = data.get('sub_mode', 'normal')
     socketio.emit('bilibili_sub_mode_update', {"sub_mode": sub_mode})
 
-@socketio.on('dogegg_navigate')
-def handle_dogegg_navigate(data):
-    """处理Dogegg方向键导航请求"""
+@socketio.on('lunatv_navigate')
+def handle_lunatv_navigate(data):
+    """处理LunaTV方向键导航请求"""
     direction = data.get('direction')
     if direction not in ['up', 'down', 'left', 'right']:
         emit('error', {"error": "无效方向"})
         return
 
-    print(f"收到Dogegg导航请求: {direction}")
-    socketio.emit('dogegg_navigate_command', {
+    print(f"收到LunaTV导航请求: {direction}")
+    socketio.emit('lunatv_navigate_command', {
         "direction": direction,
         "timestamp": int(time.time() * 1000)
     })
-    emit('dogegg_navigate_response', {"success": True, "direction": direction})
+    emit('lunatv_navigate_response', {"success": True, "direction": direction})
 
-@socketio.on('dogegg_click')
-def handle_dogegg_click():
-    """处理Dogegg点击请求"""
-    print("收到Dogegg点击请求")
-    socketio.emit('dogegg_click_command', {
+@socketio.on('lunatv_click')
+def handle_lunatv_click():
+    """处理LunaTV点击请求"""
+    print("收到LunaTV点击请求")
+    socketio.emit('lunatv_click_command', {
         "timestamp": int(time.time() * 1000)
     })
-    emit('dogegg_click_response', {"success": True})
+    emit('lunatv_click_response', {"success": True})
 
-@socketio.on('dogegg_home')
-def handle_dogegg_home():
-    """处理Dogegg首页请求"""
-    print("收到Dogegg首页请求")
-    socketio.emit('dogegg_home_command', {
+@socketio.on('lunatv_home')
+def handle_lunatv_home():
+    """处理LunaTV首页请求"""
+    print("收到LunaTV首页请求")
+    socketio.emit('lunatv_home_command', {
         "url": "https://tv.dogegg.online/douban?type=movie",
         "timestamp": int(time.time() * 1000)
     })
-    emit('dogegg_home_response', {"success": True})
+    emit('lunatv_home_response', {"success": True})
 
-@socketio.on('dogegg_search')
-def handle_dogegg_search(data):
-    """处理Dogegg搜索请求"""
+@socketio.on('lunatv_search')
+def handle_lunatv_search(data):
+    """处理LunaTV搜索请求"""
     keyword = data.get('keyword', '').strip()
 
     if not keyword:
         emit('error', {"error": "搜索关键词不能为空"})
         return
 
-    print(f"收到Dogegg搜索请求，关键词: {keyword}")
+    print(f"收到LunaTV搜索请求，关键词: {keyword}")
 
     # 广播搜索命令给所有客户端（油猴插件）
-    socketio.emit('dogegg_search_command', {
+    socketio.emit('lunatv_search_command', {
         "keyword": keyword,
         "timestamp": int(time.time() * 1000)
     })
 
-    emit('dogegg_search_response', {
+    emit('lunatv_search_response', {
         "success": True,
         "keyword": keyword,
-        "message": f"Dogegg搜索命令已发送: {keyword}"
+        "message": f"LunaTV搜索命令已发送: {keyword}"
     })
 
-@socketio.on('dogegg_tab')
-def handle_dogegg_tab(data):
-    """处理Dogegg Tab切换请求（选集/换源）"""
+@socketio.on('lunatv_tab')
+def handle_lunatv_tab(data):
+    """处理LunaTV Tab切换请求（选集/换源）"""
     tab = data.get('tab', '换源')
     if tab not in ['选集', '换源']:
         emit('error', {"error": "无效的Tab名称"})
         return
-    print(f"收到Dogegg Tab切换请求: {tab}")
-    socketio.emit('dogegg_tab_command', {
+    print(f"收到LunaTV Tab切换请求: {tab}")
+    socketio.emit('lunatv_tab_command', {
         "tab": tab,
         "timestamp": int(time.time() * 1000)
     })
-    emit('dogegg_tab_response', {"success": True, "tab": tab})
+    emit('lunatv_tab_response', {"success": True, "tab": tab})
 
 @socketio.on('report_mode')
 def handle_report_mode(data):

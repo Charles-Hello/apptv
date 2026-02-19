@@ -82,20 +82,20 @@ document.addEventListener('DOMContentLoaded', function () {
   const bilibiliSearchContainer = document.getElementById('bilibili-search-container');
   const bilibiliSearchInput = document.getElementById('bilibili-search-input');
   const bilibiliSearchBtn = document.getElementById('bilibili-search-btn');
-  const dogeggSearchContainer = document.getElementById('dogegg-search-container');
-  const dogeggSearchInput = document.getElementById('dogegg-search-input');
-  const dogeggSearchBtn = document.getElementById('dogegg-search-btn');
+  const lunatvSearchContainer = document.getElementById('lunatv-search-container');
+  const lunatvSearchInput = document.getElementById('lunatv-search-input');
+  const lunatvSearchBtn = document.getElementById('lunatv-search-btn');
   const bilibiliHistoryBtn = document.getElementById('bilibili-history-btn');
   const bilibiliFavoritesBtn = document.getElementById('bilibili-favorites-btn');
-  const dogeggTabEpisodeBtn = document.getElementById('dogegg-tab-episode-btn');
-  const dogeggTabSourceBtn = document.getElementById('dogegg-tab-source-btn');
-  const dogeggHistoryContainer = document.getElementById('dogegg-history-container');
-  const dogeggHistoryList = document.getElementById('dogegg-history-list');
-  const dogeggClearHistoryBtn = document.getElementById('dogegg-clear-history-btn');
-  const dogeggHistoryPrevBtn = document.getElementById('dogegg-history-prev-btn');
-  const dogeggHistoryNextBtn = document.getElementById('dogegg-history-next-btn');
-  const dogeggHistoryPageInfo = document.getElementById('dogegg-history-page-info');
-  const dogeggHistoryPagination = document.getElementById('dogegg-history-pagination');
+  const lunatvTabEpisodeBtn = document.getElementById('lunatv-tab-episode-btn');
+  const lunatvTabSourceBtn = document.getElementById('lunatv-tab-source-btn');
+  const lunatvHistoryContainer = document.getElementById('lunatv-history-container');
+  const lunatvHistoryList = document.getElementById('lunatv-history-list');
+  const lunatvClearHistoryBtn = document.getElementById('lunatv-clear-history-btn');
+  const lunatvHistoryPrevBtn = document.getElementById('lunatv-history-prev-btn');
+  const lunatvHistoryNextBtn = document.getElementById('lunatv-history-next-btn');
+  const lunatvHistoryPageInfo = document.getElementById('lunatv-history-page-info');
+  const lunatvHistoryPagination = document.getElementById('lunatv-history-pagination');
   const searchHistoryContainer = document.getElementById('search-history-container');
   const searchHistoryList = document.getElementById('search-history-list');
   const clearHistoryBtn = document.getElementById('clear-history-btn');
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let isMuted = false; // 添加静音状态标志
   let isBilibiliMode = false; // B站模式状态
   let isBilibiliHistoryMode = false; // B站历史页子模式
-  let isDogeggMode = false; // Dogegg模式状态
+  let isLunaTVMode = false; // LunaTV模式状态
   let isCCTVMode = false; // 央视直播模式状态
   let isGuangdongMode = false; // 广东直播模式状态
 
@@ -183,14 +183,14 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateModeLabel() {
     if (!modeLabel) return;
 
-    modeLabel.classList.remove('bilibili-active', 'dogegg-active');
+    modeLabel.classList.remove('bilibili-active', 'lunatv-active');
 
     if (isBilibiliMode) {
       modeLabel.textContent = 'B站模式';
       modeLabel.classList.add('bilibili-active');
-    } else if (isDogeggMode) {
-      modeLabel.textContent = 'Dogegg模式';
-      modeLabel.classList.add('dogegg-active');
+    } else if (isLunaTVMode) {
+      modeLabel.textContent = 'LunaTV模式';
+      modeLabel.classList.add('lunatv-active');
     } else if (isCCTVMode) {
       modeLabel.textContent = '央视直播';
     } else if (isGuangdongMode) {
@@ -202,10 +202,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 搜索历史管理
   const SEARCH_HISTORY_KEY = 'bilibili_search_history';
-  const DOGEGG_HISTORY_KEY = 'dogegg_search_history';
+  const LUNATV_HISTORY_KEY = 'lunatv_search_history';
   const ITEMS_PER_PAGE = 3;
   let currentHistoryPage = 1;
-  let currentDogeggHistoryPage = 1;
+  let currentLunaTVHistoryPage = 1;
 
   // 获取搜索历史
   function getSearchHistory() {
@@ -338,32 +338,32 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Dogegg搜索历史管理
-  // 获取Dogegg搜索历史
-  function getDogeggSearchHistory() {
+  // LunaTV搜索历史管理
+  // 获取LunaTV搜索历史
+  function getLunaTVSearchHistory() {
     try {
-      const history = localStorage.getItem(DOGEGG_HISTORY_KEY);
+      const history = localStorage.getItem(LUNATV_HISTORY_KEY);
       return history ? JSON.parse(history) : [];
     } catch (e) {
-      console.error('读取Dogegg搜索历史失败:', e);
+      console.error('读取LunaTV搜索历史失败:', e);
       return [];
     }
   }
 
-  // 保存Dogegg搜索历史
-  function saveDogeggSearchHistory(history) {
+  // 保存LunaTV搜索历史
+  function saveLunaTVSearchHistory(history) {
     try {
-      localStorage.setItem(DOGEGG_HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(LUNATV_HISTORY_KEY, JSON.stringify(history));
     } catch (e) {
-      console.error('保存Dogegg搜索历史失败:', e);
+      console.error('保存LunaTV搜索历史失败:', e);
     }
   }
 
-  // 添加Dogegg搜索记录
-  function addDogeggSearchHistory(keyword) {
+  // 添加LunaTV搜索记录
+  function addLunaTVSearchHistory(keyword) {
     if (!keyword || !keyword.trim()) return;
 
-    let history = getDogeggSearchHistory();
+    let history = getLunaTVSearchHistory();
 
     // 移除重复项（如果存在）
     history = history.filter(item => item !== keyword);
@@ -372,99 +372,99 @@ document.addEventListener('DOMContentLoaded', function () {
     history.unshift(keyword);
 
     // 保存所有历史（不限制数量）
-    saveDogeggSearchHistory(history);
+    saveLunaTVSearchHistory(history);
 
     // 重置到第一页
-    currentDogeggHistoryPage = 1;
+    currentLunaTVHistoryPage = 1;
 
     // 更新显示
-    renderDogeggSearchHistory();
+    renderLunaTVSearchHistory();
   }
 
-  // 清空Dogegg搜索历史
-  function clearDogeggSearchHistory() {
-    localStorage.removeItem(DOGEGG_HISTORY_KEY);
-    currentDogeggHistoryPage = 1;
-    renderDogeggSearchHistory();
-    statusText.textContent = 'Dogegg搜索历史已清空';
+  // 清空LunaTV搜索历史
+  function clearLunaTVSearchHistory() {
+    localStorage.removeItem(LUNATV_HISTORY_KEY);
+    currentLunaTVHistoryPage = 1;
+    renderLunaTVSearchHistory();
+    statusText.textContent = 'LunaTV搜索历史已清空';
   }
 
-  // 渲染Dogegg搜索历史
-  function renderDogeggSearchHistory() {
-    if (!dogeggHistoryList) return;
+  // 渲染LunaTV搜索历史
+  function renderLunaTVSearchHistory() {
+    if (!lunatvHistoryList) return;
 
-    const history = getDogeggSearchHistory();
+    const history = getLunaTVSearchHistory();
 
     // 如果没有历史记录，隐藏容器
     if (history.length === 0) {
-      if (dogeggHistoryContainer) {
-        dogeggHistoryContainer.style.display = 'none';
+      if (lunatvHistoryContainer) {
+        lunatvHistoryContainer.style.display = 'none';
       }
       return;
     }
 
     // 显示容器
-    if (dogeggHistoryContainer) {
-      dogeggHistoryContainer.style.display = 'block';
+    if (lunatvHistoryContainer) {
+      lunatvHistoryContainer.style.display = 'block';
     }
 
     // 计算分页
     const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
-    const startIndex = (currentDogeggHistoryPage - 1) * ITEMS_PER_PAGE;
+    const startIndex = (currentLunaTVHistoryPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const pageHistory = history.slice(startIndex, endIndex);
 
     // 清空列表
-    dogeggHistoryList.innerHTML = '';
+    lunatvHistoryList.innerHTML = '';
 
     // 渲染当前页的历史记录
     pageHistory.forEach(keyword => {
       const item = document.createElement('div');
-      item.className = 'dogegg-history-item';
+      item.className = 'lunatv-history-item';
       item.innerHTML = `<i class="fas fa-history"></i><span>${keyword}</span>`;
       item.addEventListener('click', function() {
-        if (dogeggSearchInput) {
-          dogeggSearchInput.value = keyword;
+        if (lunatvSearchInput) {
+          lunatvSearchInput.value = keyword;
         }
         // 直接触发搜索
-        performDogeggSearch(keyword);
+        performLunaTVSearch(keyword);
       });
-      dogeggHistoryList.appendChild(item);
+      lunatvHistoryList.appendChild(item);
     });
 
     // 更新分页控制
-    if (dogeggHistoryPagination && totalPages > 1) {
-      dogeggHistoryPagination.style.display = 'flex';
-      if (dogeggHistoryPageInfo) {
-        dogeggHistoryPageInfo.textContent = `${currentDogeggHistoryPage}/${totalPages}`;
+    if (lunatvHistoryPagination && totalPages > 1) {
+      lunatvHistoryPagination.style.display = 'flex';
+      if (lunatvHistoryPageInfo) {
+        lunatvHistoryPageInfo.textContent = `${currentLunaTVHistoryPage}/${totalPages}`;
       }
-      if (dogeggHistoryPrevBtn) {
-        dogeggHistoryPrevBtn.disabled = currentDogeggHistoryPage === 1;
+      if (lunatvHistoryPrevBtn) {
+        lunatvHistoryPrevBtn.disabled = currentLunaTVHistoryPage === 1;
       }
-      if (dogeggHistoryNextBtn) {
-        dogeggHistoryNextBtn.disabled = currentDogeggHistoryPage === totalPages;
+      if (lunatvHistoryNextBtn) {
+        lunatvHistoryNextBtn.disabled = currentLunaTVHistoryPage === totalPages;
       }
     } else {
-      if (dogeggHistoryPagination) {
-        dogeggHistoryPagination.style.display = 'none';
+      if (lunatvHistoryPagination) {
+        lunatvHistoryPagination.style.display = 'none';
       }
     }
   }
 
-  // 执行Dogegg搜索（提取为独立函数）
-  function performDogeggSearch(keyword) {
+  // 执行LunaTV搜索（提取为独立函数）
+  function performLunaTVSearch(keyword) {
     if (!keyword || !keyword.trim()) {
       statusText.textContent = '请输入搜索关键词';
       return;
     }
 
     if (socket && socket.connected) {
-      console.log('发送Dogegg搜索请求:', keyword);
-      socket.emit('dogegg_search', { keyword: keyword });
-      statusText.textContent = `Dogegg搜索: ${keyword}`;
+      console.log('发送LunaTV搜索请求:', keyword);
+      socket.emit('lunatv_search', { keyword: keyword });
+      statusText.textContent = `LunaTV搜索: ${keyword}`;
 
       // 添加到搜索历史
-      addDogeggSearchHistory(keyword);
+      addLunaTVSearchHistory(keyword);
     } else {
       statusText.textContent = 'WebSocket未连接，无法搜索';
     }
@@ -515,10 +515,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (bilibiliSearchBtn) bilibiliSearchBtn.disabled = !enable;
     if (bilibiliHistoryBtn) bilibiliHistoryBtn.disabled = !enable;
     if (bilibiliFavoritesBtn) bilibiliFavoritesBtn.disabled = !enable;
-    if (dogeggSearchInput) dogeggSearchInput.disabled = !enable;
-    if (dogeggSearchBtn) dogeggSearchBtn.disabled = !enable;
-    if (dogeggTabEpisodeBtn) dogeggTabEpisodeBtn.disabled = !enable;
-    if (dogeggTabSourceBtn) dogeggTabSourceBtn.disabled = !enable;
+    if (lunatvSearchInput) lunatvSearchInput.disabled = !enable;
+    if (lunatvSearchBtn) lunatvSearchBtn.disabled = !enable;
+    if (lunatvTabEpisodeBtn) lunatvTabEpisodeBtn.disabled = !enable;
+    if (lunatvTabSourceBtn) lunatvTabSourceBtn.disabled = !enable;
     // 央视频道按钮
     if (cctvChannelsGrid) {
       const channelBtns = cctvChannelsGrid.querySelectorAll('.cctv-channel-btn');
@@ -654,27 +654,27 @@ document.addEventListener('DOMContentLoaded', function () {
         // 更新模式状态
         if (mode === 'bilibili') {
           isBilibiliMode = true;
-          isDogeggMode = false;
+          isLunaTVMode = false;
           isCCTVMode = false;
           isGuangdongMode = false;
-        } else if (mode === 'dogegg') {
+        } else if (mode === 'lunatv') {
           isBilibiliMode = false;
-          isDogeggMode = true;
+          isLunaTVMode = true;
           isCCTVMode = false;
           isGuangdongMode = false;
         } else if (mode === 'cctv') {
           isBilibiliMode = false;
-          isDogeggMode = false;
+          isLunaTVMode = false;
           isCCTVMode = true;
           isGuangdongMode = false;
         } else if (mode === 'guangdong') {
           isBilibiliMode = false;
-          isDogeggMode = false;
+          isLunaTVMode = false;
           isCCTVMode = false;
           isGuangdongMode = true;
         } else {
           isBilibiliMode = false;
-          isDogeggMode = false;
+          isLunaTVMode = false;
           isCCTVMode = false;
           isGuangdongMode = false;
         }
@@ -682,39 +682,39 @@ document.addEventListener('DOMContentLoaded', function () {
         // 更新UI
         const controlsCard = document.querySelector('.controls-card');
         if (controlsCard) {
-          controlsCard.classList.remove('bilibili-mode-active', 'dogegg-mode-active');
+          controlsCard.classList.remove('bilibili-mode-active', 'lunatv-mode-active');
           if (isBilibiliMode) {
             controlsCard.classList.add('bilibili-mode-active');
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'block';
-            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
             if (backBtn) backBtn.style.display = 'inline-flex';
-          } else if (isDogeggMode) {
-            controlsCard.classList.add('dogegg-mode-active');
+          } else if (isLunaTVMode) {
+            controlsCard.classList.add('lunatv-mode-active');
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
-            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'block';
+            if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'block';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
             if (backBtn) backBtn.style.display = 'inline-flex';
           } else if (isCCTVMode) {
             // 央视模式：显示央视频道列表
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
-            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'block';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
             if (backBtn) backBtn.style.display = 'none';
           } else if (isGuangdongMode) {
             // 广东模式：显示广东频道列表
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
-            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'block';
             if (backBtn) backBtn.style.display = 'none';
           } else {
             // 普通模式
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
-            if (dogeggSearchContainer) dogeggSearchContainer.style.display = 'none';
+            if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
             if (backBtn) backBtn.style.display = 'none';
@@ -843,16 +843,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
 
-      socket.on('dogegg_search_response', function (data) {
-        console.log('收到Dogegg搜索响应:', data);
+      socket.on('lunatv_search_response', function (data) {
+        console.log('收到LunaTV搜索响应:', data);
         if (data.success) {
-          statusText.textContent = data.message || `Dogegg搜索成功: ${data.keyword}`;
+          statusText.textContent = data.message || `LunaTV搜索成功: ${data.keyword}`;
           // 清空搜索框
-          if (dogeggSearchInput) {
-            dogeggSearchInput.value = '';
+          if (lunatvSearchInput) {
+            lunatvSearchInput.value = '';
           }
         } else {
-          statusText.textContent = `Dogegg搜索失败: ${data.message || '未知错误'}`;
+          statusText.textContent = `LunaTV搜索失败: ${data.message || '未知错误'}`;
         }
       });
 
@@ -1045,9 +1045,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowUpBtn) {
     arrowUpBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isDogeggMode) {
-          socket.emit('dogegg_navigate', { direction: 'up' });
-          statusText.textContent = 'Dogegg: 上';
+        if (isLunaTVMode) {
+          socket.emit('lunatv_navigate', { direction: 'up' });
+          statusText.textContent = 'LunaTV: 上';
         } else if (isBilibiliMode && isBilibiliHistoryMode) {
           socket.emit('bilibili_history_navigate', { direction: 'up' });
           statusText.textContent = 'B站历史: 上';
@@ -1065,9 +1065,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowDownBtn) {
     arrowDownBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isDogeggMode) {
-          socket.emit('dogegg_navigate', { direction: 'down' });
-          statusText.textContent = 'Dogegg: 下';
+        if (isLunaTVMode) {
+          socket.emit('lunatv_navigate', { direction: 'down' });
+          statusText.textContent = 'LunaTV: 下';
         } else if (isBilibiliMode && isBilibiliHistoryMode) {
           socket.emit('bilibili_history_navigate', { direction: 'down' });
           statusText.textContent = 'B站历史: 下';
@@ -1085,9 +1085,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowLeftBtn) {
     arrowLeftBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isDogeggMode) {
-          socket.emit('dogegg_navigate', { direction: 'left' });
-          statusText.textContent = 'Dogegg: 左';
+        if (isLunaTVMode) {
+          socket.emit('lunatv_navigate', { direction: 'left' });
+          statusText.textContent = 'LunaTV: 左';
         } else {
           socket.emit('key_press', { direction: 'left' });
           statusText.textContent = '发送方向左键命令';
@@ -1102,9 +1102,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (arrowRightBtn) {
     arrowRightBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isDogeggMode) {
-          socket.emit('dogegg_navigate', { direction: 'right' });
-          statusText.textContent = 'Dogegg: 右';
+        if (isLunaTVMode) {
+          socket.emit('lunatv_navigate', { direction: 'right' });
+          statusText.textContent = 'LunaTV: 右';
         } else {
           socket.emit('key_press', { direction: 'right' });
           statusText.textContent = '发送方向右键命令';
@@ -1139,9 +1139,9 @@ document.addEventListener('DOMContentLoaded', function () {
           // B站模式：发送 Enter 键
           socket.emit('key_press', { direction: 'enter' });
           statusText.textContent = '发送Enter键命令';
-        } else if (isDogeggMode) {
-          // Dogegg模式：发送点击命令
-          socket.emit('dogegg_click');
+        } else if (isLunaTVMode) {
+          // LunaTV模式：发送点击命令
+          socket.emit('lunatv_click');
           statusText.textContent = '发送点击命令';
         } else {
           // 普通模式：发送空格键
@@ -1158,9 +1158,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (backBtn) {
     backBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isDogeggMode) {
-          socket.emit('dogegg_home');
-          statusText.textContent = '跳转Dogegg首页';
+        if (isLunaTVMode) {
+          socket.emit('lunatv_home');
+          statusText.textContent = '跳转LunaTV首页';
         } else {
           socket.emit('bilibili_home');
           statusText.textContent = '跳转B站首页';
@@ -1258,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (lunaTvBtn) {
     lunaTvBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('dogegg_home');
+        socket.emit('lunatv_home');
         statusText.textContent = '跳转到 LunaTV';
       } else {
         statusText.textContent = 'WebSocket未连接，无法跳转';
@@ -1284,50 +1284,50 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Dogegg搜索按钮
-  if (dogeggSearchBtn) {
-    dogeggSearchBtn.addEventListener('click', function () {
-      const keyword = dogeggSearchInput ? dogeggSearchInput.value.trim() : '';
-      performDogeggSearch(keyword);
+  // LunaTV搜索按钮
+  if (lunatvSearchBtn) {
+    lunatvSearchBtn.addEventListener('click', function () {
+      const keyword = lunatvSearchInput ? lunatvSearchInput.value.trim() : '';
+      performLunaTVSearch(keyword);
     });
   }
 
-  // Dogegg搜索框支持回车键
-  if (dogeggSearchInput) {
-    dogeggSearchInput.addEventListener('keypress', function (e) {
+  // LunaTV搜索框支持回车键
+  if (lunatvSearchInput) {
+    lunatvSearchInput.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
-        const keyword = dogeggSearchInput.value.trim();
-        performDogeggSearch(keyword);
+        const keyword = lunatvSearchInput.value.trim();
+        performLunaTVSearch(keyword);
       }
     });
   }
 
-  // 清空Dogegg搜索历史按钮
-  if (dogeggClearHistoryBtn) {
-    dogeggClearHistoryBtn.addEventListener('click', function() {
-      if (confirm('确定要清空所有Dogegg搜索历史吗？')) {
-        clearDogeggSearchHistory();
+  // 清空LunaTV搜索历史按钮
+  if (lunatvClearHistoryBtn) {
+    lunatvClearHistoryBtn.addEventListener('click', function() {
+      if (confirm('确定要清空所有LunaTV搜索历史吗？')) {
+        clearLunaTVSearchHistory();
       }
     });
   }
 
-  // Dogegg历史记录翻页按钮
-  if (dogeggHistoryPrevBtn) {
-    dogeggHistoryPrevBtn.addEventListener('click', function() {
-      if (currentDogeggHistoryPage > 1) {
-        currentDogeggHistoryPage--;
-        renderDogeggSearchHistory();
+  // LunaTV历史记录翻页按钮
+  if (lunatvHistoryPrevBtn) {
+    lunatvHistoryPrevBtn.addEventListener('click', function() {
+      if (currentLunaTVHistoryPage > 1) {
+        currentLunaTVHistoryPage--;
+        renderLunaTVSearchHistory();
       }
     });
   }
 
-  if (dogeggHistoryNextBtn) {
-    dogeggHistoryNextBtn.addEventListener('click', function() {
-      const history = getDogeggSearchHistory();
+  if (lunatvHistoryNextBtn) {
+    lunatvHistoryNextBtn.addEventListener('click', function() {
+      const history = getLunaTVSearchHistory();
       const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
-      if (currentDogeggHistoryPage < totalPages) {
-        currentDogeggHistoryPage++;
-        renderDogeggSearchHistory();
+      if (currentLunaTVHistoryPage < totalPages) {
+        currentLunaTVHistoryPage++;
+        renderLunaTVSearchHistory();
       }
     });
   }
@@ -1485,26 +1485,26 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Dogegg 选集/换源 Tab按钮
-  if (dogeggTabEpisodeBtn) {
-    dogeggTabEpisodeBtn.addEventListener('click', function () {
+  // LunaTV 选集/换源 Tab按钮
+  if (lunatvTabEpisodeBtn) {
+    lunatvTabEpisodeBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('dogegg_tab', { tab: '选集' });
+        socket.emit('lunatv_tab', { tab: '选集' });
       }
     });
   }
 
-  if (dogeggTabSourceBtn) {
-    dogeggTabSourceBtn.addEventListener('click', function () {
+  if (lunatvTabSourceBtn) {
+    lunatvTabSourceBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        socket.emit('dogegg_tab', { tab: '换源' });
+        socket.emit('lunatv_tab', { tab: '换源' });
       }
     });
   }
 
   // 初始化渲染搜索历史
   renderSearchHistory();
-  renderDogeggSearchHistory();
+  renderLunaTVSearchHistory();
 
   // 初始化央视频道按钮
   function initCCTVChannels() {

@@ -239,10 +239,13 @@
     });
   }
 
-  // Dogegg页面导航 - 基于视觉位置的简单导航
-  let dogeggFocusedIndex = -1; // 当前聚焦卡片在可见列表中的索引
+  // LunaTV页面导航 - 基于 aria-rowindex/aria-colindex 的绝对位置追踪
+  // 使用绝对行列位置，兼容 react-window 虚拟列表（DOM 元素动态销毁/重建）
+  let lunatvFocusedRow = -1; // 当前聚焦卡片的绝对行（0-based）
+  let lunatvFocusedCol = 0;  // 当前聚焦卡片的绝对列（0-based）
+  let lunatvScrollTimer = null; // 滚动防抖 timer
 
-  function getDogeggColumnCount() {
+  function getLunaTVColumnCount() {
     const grid = document.querySelector('[role="grid"]');
     if (grid) {
       const count = parseInt(grid.getAttribute('aria-colcount'));
@@ -251,28 +254,22 @@
     return 4;
   }
 
-  function getAllVisibleCellsSorted() {
-    // 获取所有可见 gridcell，按视觉位置排序（从上到下，从左到右）
-    const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
-
-    return cells.map(cell => {
-      const rect = cell.getBoundingClientRect();
-      return {
-        cell,
-        top: Math.round(rect.top),
-        left: Math.round(rect.left)
-      };
-    }).sort((a, b) => {
-      // 先按行排序（top 坐标，容差30px认为是同一行）
-      const rowDiff = Math.floor(a.top / 30) - Math.floor(b.top / 30);
-      if (rowDiff !== 0) return rowDiff;
-      // 同一行内按列排序（left 坐标）
-      return a.left - b.left;
-    }).map(item => item.cell); // 只返回 cell 元素
+  // 通过 aria 属性找到指定行列的 gridcell
+  // react-window 2.x: aria-rowindex 在 role="row" 的父元素上，aria-colindex 在 role="gridcell" 上
+  function findCellByRowCol(row, col) {
+    const rowDiv = document.querySelector(`[role="row"][aria-rowindex="${row + 1}"]`);
+    if (!rowDiv) return null;
+    return rowDiv.querySelector(`[role="gridcell"][aria-colindex="${col + 1}"]`) || null;
   }
 
-  function clearDogeggFocus() {
+  // 获取当前标记为聚焦的 cell（通过 data 属性，即使虚拟列表重建也能找到）
+  function getLunaTVFocusedCell() {
+    return document.querySelector('[role="gridcell"][data-lunatv-focused="true"]');
+  }
+
+  function clearLunaTVFocus() {
     document.querySelectorAll('[role="gridcell"]').forEach(cell => {
+      cell.removeAttribute('data-lunatv-focused');
       const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
       if (card) {
         card.style.outline = '';
@@ -281,130 +278,136 @@
     });
   }
 
-  function applyDogeggFocus(cell, index) {
+  function applyLunaTVFocus(cell, row, col) {
     if (!cell) return;
+    clearLunaTVFocus();
+
+    cell.setAttribute('data-lunatv-focused', 'true');
+    lunatvFocusedRow = row;
+    lunatvFocusedCol = col;
+
     const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
-    if (!card) return;
-
-    card.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
-    card.style.boxShadow = '0 0 0 5px rgba(74, 222, 128, 0.25)';
-    card.style.borderRadius = '8px';
-    cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    dogeggFocusedIndex = index;
-
-    const cols = getDogeggColumnCount();
-    const row = Math.floor(index / cols);
-    const col = index % cols;
-    console.log(`Dogegg: 聚焦 index=${index}, row=${row}, col=${col}`);
+    if (card) {
+      card.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
+      card.style.boxShadow = '0 0 0 5px rgba(74, 222, 128, 0.25)';
+      card.style.borderRadius = '8px';
+    }
+    cell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    console.log(`LunaTV: 聚焦 row=${row}, col=${col}`);
   }
 
-  function dogeggNavigate(direction) {
-    const cols = getDogeggColumnCount();
-    const visibleCells = getAllVisibleCellsSorted();
+  function lunatvNavigate(direction) {
+    const cols = getLunaTVColumnCount();
 
-    if (!visibleCells.length) {
-      console.log('Dogegg: 没有找到可见的卡片');
+    // 初始化：选视口内第一个可见的 gridcell
+    if (lunatvFocusedRow < 0) {
+      const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
+      for (const cell of cells) {
+        const rect = cell.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight && rect.width > 0) {
+          // aria-rowindex 在父级 role="row" 上，aria-colindex 在 gridcell 上
+          const rowDiv = cell.closest('[role="row"]');
+          const r = rowDiv ? parseInt(rowDiv.getAttribute('aria-rowindex') || '1') - 1 : 0;
+          const c = parseInt(cell.getAttribute('aria-colindex') || '1') - 1;
+          applyLunaTVFocus(cell, r, c);
+          console.log('LunaTV: 初始化，聚焦视口内第一个卡片');
+          return;
+        }
+      }
       return;
     }
 
-    // 初始化：聚焦第一个卡片
-    if (dogeggFocusedIndex < 0 || dogeggFocusedIndex >= visibleCells.length) {
-      clearDogeggFocus();
-      applyDogeggFocus(visibleCells[0], 0);
-      console.log('Dogegg: 初始化，聚焦第一个卡片');
-      return;
-    }
+    // 计算目标行列
+    let nextRow = lunatvFocusedRow;
+    let nextCol = lunatvFocusedCol;
 
-    let targetIndex = dogeggFocusedIndex;
-
-    if (direction === 'left') {
-      // 向左：index - 1，可以跨行（到达行首时跳到上一行末尾）
-      const newIndex = dogeggFocusedIndex - 1;
-      if (newIndex >= 0) {
-        targetIndex = newIndex;
+    if (direction === 'up') {
+      nextRow = Math.max(0, lunatvFocusedRow - 1);
+    } else if (direction === 'down') {
+      nextRow = lunatvFocusedRow + 1;
+    } else if (direction === 'left') {
+      if (lunatvFocusedCol > 0) {
+        nextCol = lunatvFocusedCol - 1;
+      } else if (lunatvFocusedRow > 0) {
+        nextRow = lunatvFocusedRow - 1;
+        nextCol = cols - 1;
       }
     } else if (direction === 'right') {
-      // 向右：index + 1，可以跨行（到达行末时跳到下一行开头）
-      const newIndex = dogeggFocusedIndex + 1;
-      if (newIndex < visibleCells.length) {
-        targetIndex = newIndex;
+      if (lunatvFocusedCol < cols - 1) {
+        nextCol = lunatvFocusedCol + 1;
+      } else {
+        nextRow = lunatvFocusedRow + 1;
+        nextCol = 0;
       }
-    } else if (direction === 'up') {
-      // 向上：index - cols
-      targetIndex = dogeggFocusedIndex - cols;
-    } else if (direction === 'down') {
-      // 向下：index + cols
-      targetIndex = dogeggFocusedIndex + cols;
     }
 
-    // 检查目标索引是否在可见范围内
-    if (targetIndex >= 0 && targetIndex < visibleCells.length) {
-      // 目标卡片可见，直接聚焦
-      clearDogeggFocus();
-      applyDogeggFocus(visibleCells[targetIndex], targetIndex);
-    } else if ((direction === 'up' && targetIndex < 0) || (direction === 'down' && targetIndex >= visibleCells.length)) {
-      // 需要滚动
-      const scrollAmount = direction === 'down' ? 350 : -350;
+    // 通过 aria 属性找目标 cell（虚拟列表中若已渲染则能找到）
+    const nextCell = findCellByRowCol(nextRow, nextCol);
+
+    if (nextCell) {
+      // 目标在当前 DOM 中，直接聚焦
+      applyLunaTVFocus(nextCell, nextRow, nextCol);
+    } else {
+      // 目标不在 DOM 中（被虚拟列表回收），先记录目标位置再滚动
+      lunatvFocusedRow = nextRow;
+      lunatvFocusedCol = nextCol;
+
+      const scrollAmount = (direction === 'down' || direction === 'right') ? 350 : -350;
       window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+      console.log(`LunaTV: 滚动 ${direction}, 等待虚拟列表渲染 row=${nextRow} col=${nextCol}`);
 
-      console.log(`Dogegg: 滚动 ${direction}, 等待新卡片渲染`);
+      // 取消前一个回调，只保留最后一次
+      if (lunatvScrollTimer) clearTimeout(lunatvScrollTimer);
 
-      // 滚动后重新获取卡片列表并尝试聚焦
-      setTimeout(() => {
-        const newVisibleCells = getAllVisibleCellsSorted();
-
-        // 重新计算目标索引（保持同一列）
-        const currentCol = dogeggFocusedIndex % cols;
-        let newTargetIndex = -1;
-
-        if (direction === 'down') {
-          // 向下滚动后，找到第一行的同一列
-          newTargetIndex = currentCol;
-        } else if (direction === 'up') {
-          // 向上滚动后，找到最后一行的同一列
-          const lastRowStart = Math.floor((newVisibleCells.length - 1) / cols) * cols;
-          newTargetIndex = Math.min(lastRowStart + currentCol, newVisibleCells.length - 1);
-        }
-
-        if (newTargetIndex >= 0 && newTargetIndex < newVisibleCells.length) {
-          clearDogeggFocus();
-          applyDogeggFocus(newVisibleCells[newTargetIndex], newTargetIndex);
+      lunatvScrollTimer = setTimeout(() => {
+        lunatvScrollTimer = null;
+        // 用保存的绝对位置查找，react-window 滚动后会渲染对应行
+        const targetCell = findCellByRowCol(lunatvFocusedRow, lunatvFocusedCol);
+        if (targetCell) {
+          applyLunaTVFocus(targetCell, lunatvFocusedRow, lunatvFocusedCol);
+        } else {
+          // 若仍未渲染，选视口内第一个可见卡片作为降级
+          const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
+          for (const cell of cells) {
+            const rect = cell.getBoundingClientRect();
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight && rect.width > 0) {
+              const rowDiv = cell.closest('[role="row"]');
+              const r = rowDiv ? parseInt(rowDiv.getAttribute('aria-rowindex') || '1') - 1 : 0;
+              const c = parseInt(cell.getAttribute('aria-colindex') || '1') - 1;
+              applyLunaTVFocus(cell, r, c);
+              break;
+            }
+          }
         }
       }, 450);
     }
   }
 
-  function dogeggClick() {
-    const visibleCells = getAllVisibleCellsSorted();
-
-    if (dogeggFocusedIndex < 0 || dogeggFocusedIndex >= visibleCells.length) {
-      console.log('Dogegg: 没有聚焦的卡片');
+  function lunatvClick() {
+    // 通过 data 属性找当前聚焦的 cell，兼容虚拟列表
+    const cell = getLunaTVFocusedCell();
+    if (!cell) {
+      console.log('LunaTV: 没有聚焦的卡片');
       return;
     }
 
-    const cell = visibleCells[dogeggFocusedIndex];
-    if (!cell) return;
-
-    // 点击播放按钮 div[data-button="true"]（第一个匹配的）
     const playBtn = cell.querySelector('[data-button="true"]');
     if (playBtn) {
-      console.log(`Dogegg: 点击播放按钮 index=${dogeggFocusedIndex}`);
+      console.log(`LunaTV: 点击播放按钮 row=${lunatvFocusedRow}, col=${lunatvFocusedCol}`);
       playBtn.click();
       return;
     }
 
-    // 降级：点击整个卡片
     const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
     if (card) {
       card.click();
-      console.log(`Dogegg: 降级点击卡片 index=${dogeggFocusedIndex}`);
+      console.log(`LunaTV: 降级点击卡片 row=${lunatvFocusedRow}, col=${lunatvFocusedCol}`);
     }
   }
 
-  // Dogegg播放页面播放源切换功能
-  let dogeggPlaySourceIndex = -1;
-  let cachedDogeggSources = null;
+  // LunaTV播放页面播放源切换功能
+  let lunatvPlaySourceIndex = -1;
+  let cachedLunaTVSources = null;
 
   // === 播放页面 Tab 工具函数 ===
   function findPlayTab(tabText) {
@@ -426,31 +429,31 @@
 
   function switchToPlayTab(tabText) {
     const tab = findPlayTab(tabText);
-    if (!tab) { console.log('Dogegg播放页: 未找到Tab:', tabText); return false; }
+    if (!tab) { console.log('LunaTV播放页: 未找到Tab:', tabText); return false; }
     tab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     tab.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
     tab.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
-    cachedDogeggSources = null; dogeggPlaySourceIndex = -1;
-    cachedDogeggEpisodes = null; dogeggEpisodeIndex = -1;
-    console.log('Dogegg播放页: 已切换到Tab:', tabText);
+    cachedLunaTVSources = null; lunatvPlaySourceIndex = -1;
+    cachedLunaTVEpisodes = null; lunatvEpisodeIndex = -1;
+    console.log('LunaTV播放页: 已切换到Tab:', tabText);
     return true;
   }
 
   // === 选集功能 ===
-  let dogeggEpisodeIndex = -1;
-  let cachedDogeggEpisodes = null;
+  let lunatvEpisodeIndex = -1;
+  let cachedLunaTVEpisodes = null;
 
-  function getDogeggEpisodes() {
-    if (cachedDogeggEpisodes && cachedDogeggEpisodes.length > 0 &&
-        cachedDogeggEpisodes.every(el => document.body.contains(el))) {
-      return cachedDogeggEpisodes;
+  function getLunaTVEpisodes() {
+    if (cachedLunaTVEpisodes && cachedLunaTVEpisodes.length > 0 &&
+        cachedLunaTVEpisodes.every(el => document.body.contains(el))) {
+      return cachedLunaTVEpisodes;
     }
-    cachedDogeggEpisodes = null; dogeggEpisodeIndex = -1;
+    cachedLunaTVEpisodes = null; lunatvEpisodeIndex = -1;
 
     const episodeLabel = Array.from(document.querySelectorAll('span')).find(
       el => el.textContent?.trim() === '选集'
     );
-    if (!episodeLabel) { console.log('Dogegg播放页: 未找到"选集"标签'); return []; }
+    if (!episodeLabel) { console.log('LunaTV播放页: 未找到"选集"标签'); return []; }
 
     let container = null;
     let anc = episodeLabel.parentElement;
@@ -459,69 +462,69 @@
       if (found) { container = found; break; }
       anc = anc.parentElement;
     }
-    if (!container) { console.log('Dogegg播放页: 未找到集数列表容器'); return []; }
+    if (!container) { console.log('LunaTV播放页: 未找到集数列表容器'); return []; }
 
     const btns = Array.from(container.querySelectorAll('button'));
-    console.log('Dogegg播放页: 找到', btns.length, '个集数按钮');
-    cachedDogeggEpisodes = btns;
+    console.log('LunaTV播放页: 找到', btns.length, '个集数按钮');
+    cachedLunaTVEpisodes = btns;
     return btns;
   }
 
-  function highlightDogeggEpisode(index) {
-    const episodes = getDogeggEpisodes();
+  function highlightLunaTVEpisode(index) {
+    const episodes = getLunaTVEpisodes();
     if (index < 0 || index >= episodes.length) return;
     episodes.forEach(b => { b.style.outline = ''; b.style.boxShadow = ''; });
     const current = episodes[index];
     current.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
     current.style.boxShadow = '0 0 0 6px rgba(74, 222, 128, 0.2)';
     current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    console.log('Dogegg播放页: 高亮集数 [' + (index + 1) + '/' + episodes.length + '] ' + current.textContent?.trim());
+    console.log('LunaTV播放页: 高亮集数 [' + (index + 1) + '/' + episodes.length + '] ' + current.textContent?.trim());
   }
 
-  function dogeggEpisodeNavigate(direction) {
+  function lunatvEpisodeNavigate(direction) {
     if (!window.location.href.includes('tv.dogegg.online/play')) return;
-    const episodes = getDogeggEpisodes();
-    if (episodes.length === 0) { console.log('Dogegg播放页: 找不到集数列表'); return; }
-    if (dogeggEpisodeIndex < 0) {
+    const episodes = getLunaTVEpisodes();
+    if (episodes.length === 0) { console.log('LunaTV播放页: 找不到集数列表'); return; }
+    if (lunatvEpisodeIndex < 0) {
       const currentIdx = episodes.findIndex(btn =>
         btn.className.includes('from-primary-500') || btn.className.includes('scale-105')
       );
-      dogeggEpisodeIndex = currentIdx >= 0 ? currentIdx : 0;
-      highlightDogeggEpisode(dogeggEpisodeIndex);
+      lunatvEpisodeIndex = currentIdx >= 0 ? currentIdx : 0;
+      highlightLunaTVEpisode(lunatvEpisodeIndex);
       return;
     }
-    if (direction === 'up') dogeggEpisodeIndex = Math.max(0, dogeggEpisodeIndex - 1);
-    else if (direction === 'down') dogeggEpisodeIndex = Math.min(episodes.length - 1, dogeggEpisodeIndex + 1);
-    highlightDogeggEpisode(dogeggEpisodeIndex);
+    if (direction === 'up') lunatvEpisodeIndex = Math.max(0, lunatvEpisodeIndex - 1);
+    else if (direction === 'down') lunatvEpisodeIndex = Math.min(episodes.length - 1, lunatvEpisodeIndex + 1);
+    highlightLunaTVEpisode(lunatvEpisodeIndex);
   }
 
-  function dogeggEpisodeClick() {
+  function lunatvEpisodeClick() {
     if (!window.location.href.includes('tv.dogegg.online/play')) return;
-    const episodes = getDogeggEpisodes();
-    if (dogeggEpisodeIndex < 0 || dogeggEpisodeIndex >= episodes.length) { console.log('Dogegg播放页: 没有选中的集数'); return; }
-    const btn = episodes[dogeggEpisodeIndex];
-    console.log('Dogegg播放页: 点击集数 ' + btn.textContent?.trim());
+    const episodes = getLunaTVEpisodes();
+    if (lunatvEpisodeIndex < 0 || lunatvEpisodeIndex >= episodes.length) { console.log('LunaTV播放页: 没有选中的集数'); return; }
+    const btn = episodes[lunatvEpisodeIndex];
+    console.log('LunaTV播放页: 点击集数 ' + btn.textContent?.trim());
     btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     btn.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
     btn.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
-    cachedDogeggEpisodes = null; dogeggEpisodeIndex = -1;
+    cachedLunaTVEpisodes = null; lunatvEpisodeIndex = -1;
   }
 
-  function getDogeggPlaySources() {
+  function getLunaTVPlaySources() {
     // 缓存有效直接返回
-    if (cachedDogeggSources && cachedDogeggSources.length > 0 &&
-        cachedDogeggSources.every(el => document.body.contains(el))) {
-      return cachedDogeggSources;
+    if (cachedLunaTVSources && cachedLunaTVSources.length > 0 &&
+        cachedLunaTVSources.every(el => document.body.contains(el))) {
+      return cachedLunaTVSources;
     }
-    cachedDogeggSources = null;
-    dogeggPlaySourceIndex = -1;
+    cachedLunaTVSources = null;
+    lunatvPlaySourceIndex = -1;
 
     // Step1: 找文本严格等于"换源"的 span
     const sourceLabel = Array.from(document.querySelectorAll('span')).find(
       el => el.textContent?.trim() === '换源'
     );
     if (!sourceLabel) {
-      console.log('Dogegg播放页: 未找到"换源"标签，请确认换源面板已打开');
+      console.log('LunaTV播放页: 未找到"换源"标签，请确认换源面板已打开');
       return [];
     }
 
@@ -538,7 +541,7 @@
     }
 
     if (!listContainer) {
-      console.log('Dogegg播放页: 未找到资源列表容器');
+      console.log('LunaTV播放页: 未找到资源列表容器');
       return [];
     }
 
@@ -548,17 +551,17 @@
     );
 
     if (items.length === 0) {
-      console.log('Dogegg播放页: 未找到资源卡片，listContainer.children:', listContainer.children.length);
+      console.log('LunaTV播放页: 未找到资源卡片，listContainer.children:', listContainer.children.length);
       return [];
     }
 
-    console.log(`Dogegg播放页: 找到 ${items.length} 个资源卡片`);
-    cachedDogeggSources = items;
+    console.log(`LunaTV播放页: 找到 ${items.length} 个资源卡片`);
+    cachedLunaTVSources = items;
     return items;
   }
 
-  function highlightDogeggPlaySource(index) {
-    const sources = getDogeggPlaySources();
+  function highlightLunaTVPlaySource(index) {
+    const sources = getLunaTVPlaySources();
     if (index < 0 || index >= sources.length) return;
 
     // 清除所有高亮
@@ -578,50 +581,50 @@
     // 读取资源名称用于日志
     const nameEl = current.querySelector('span[class*="border"]');
     const name = nameEl ? nameEl.textContent?.trim() : `第${index + 1}项`;
-    console.log(`Dogegg播放页: 高亮资源 [${index + 1}/${sources.length}] ${name}`);
+    console.log(`LunaTV播放页: 高亮资源 [${index + 1}/${sources.length}] ${name}`);
   }
 
-  function dogeggPlaySourceNavigate(direction) {
+  function lunatvPlaySourceNavigate(direction) {
     if (!window.location.href.includes('tv.dogegg.online/play')) return;
 
-    const sources = getDogeggPlaySources();
+    const sources = getLunaTVPlaySources();
     if (sources.length === 0) {
-      console.log('Dogegg播放页: 找不到换源列表，请确认换源面板已打开');
+      console.log('LunaTV播放页: 找不到换源列表，请确认换源面板已打开');
       return;
     }
 
     // 初始化：定位到当前正在播放的那个资源（有"当前源"标签）
-    if (dogeggPlaySourceIndex < 0) {
+    if (lunatvPlaySourceIndex < 0) {
       const currentIdx = sources.findIndex(el =>
         el.textContent?.includes('当前源')
       );
-      dogeggPlaySourceIndex = currentIdx >= 0 ? currentIdx : 0;
-      highlightDogeggPlaySource(dogeggPlaySourceIndex);
+      lunatvPlaySourceIndex = currentIdx >= 0 ? currentIdx : 0;
+      highlightLunaTVPlaySource(lunatvPlaySourceIndex);
       return;
     }
 
     if (direction === 'up') {
-      dogeggPlaySourceIndex = Math.max(0, dogeggPlaySourceIndex - 1);
+      lunatvPlaySourceIndex = Math.max(0, lunatvPlaySourceIndex - 1);
     } else if (direction === 'down') {
-      dogeggPlaySourceIndex = Math.min(sources.length - 1, dogeggPlaySourceIndex + 1);
+      lunatvPlaySourceIndex = Math.min(sources.length - 1, lunatvPlaySourceIndex + 1);
     }
 
-    highlightDogeggPlaySource(dogeggPlaySourceIndex);
+    highlightLunaTVPlaySource(lunatvPlaySourceIndex);
   }
 
-  function dogeggPlaySourceClick() {
+  function lunatvPlaySourceClick() {
     if (!window.location.href.includes('tv.dogegg.online/play')) return;
 
-    const sources = getDogeggPlaySources();
-    if (dogeggPlaySourceIndex < 0 || dogeggPlaySourceIndex >= sources.length) {
-      console.log('Dogegg播放页: 没有选中的资源');
+    const sources = getLunaTVPlaySources();
+    if (lunatvPlaySourceIndex < 0 || lunatvPlaySourceIndex >= sources.length) {
+      console.log('LunaTV播放页: 没有选中的资源');
       return;
     }
 
-    const item = sources[dogeggPlaySourceIndex];
+    const item = sources[lunatvPlaySourceIndex];
     const nameEl = item.querySelector('span[class*="border"]');
-    const name = nameEl ? nameEl.textContent?.trim() : `第${dogeggPlaySourceIndex + 1}项`;
-    console.log(`Dogegg播放页: 点击资源 ${name}`);
+    const name = nameEl ? nameEl.textContent?.trim() : `第${lunatvPlaySourceIndex + 1}项`;
+    console.log(`LunaTV播放页: 点击资源 ${name}`);
 
     // React 应用需要真实的 MouseEvent 才能触发合成事件
     item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
@@ -629,8 +632,8 @@
     item.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
 
     // 点击后清空缓存，等待页面更新
-    cachedDogeggSources = null;
-    dogeggPlaySourceIndex = -1;
+    cachedLunaTVSources = null;
+    lunatvPlaySourceIndex = -1;
   }
 
   // === B站历史页导航 ===
@@ -1003,33 +1006,33 @@
       });
 
 
-  // === Dogegg 播放页视频快进/快退 ===
-  function dogeggVideoSeek(direction) {
+  // === LunaTV 播放页视频快进/快退 ===
+  function lunatvVideoSeek(direction) {
     const video = document.querySelector('video');
     if (!video) {
-      console.log('Dogegg播放页: 未找到视频元素');
+      console.log('LunaTV播放页: 未找到视频元素');
       return;
     }
     const seekAmount = 10; // 快进/快退秒数
     if (direction === 'left') {
       video.currentTime = Math.max(0, video.currentTime - seekAmount);
-      console.log('Dogegg播放页: 后退', seekAmount, '秒，当前', Math.floor(video.currentTime), '/', Math.floor(video.duration || 0));
+      console.log('LunaTV播放页: 后退', seekAmount, '秒，当前', Math.floor(video.currentTime), '/', Math.floor(video.duration || 0));
     } else if (direction === 'right') {
       video.currentTime = Math.min(video.duration || Infinity, video.currentTime + seekAmount);
-      console.log('Dogegg播放页: 前进', seekAmount, '秒，当前', Math.floor(video.currentTime), '/', Math.floor(video.duration || 0));
+      console.log('LunaTV播放页: 前进', seekAmount, '秒，当前', Math.floor(video.currentTime), '/', Math.floor(video.duration || 0));
     }
   }
 
-      // 处理Dogegg导航命令
-      socket.on('dogegg_navigate_command', function (data) {
+      // 处理LunaTV导航命令
+      socket.on('lunatv_navigate_command', function (data) {
         if (!window.location.href.includes('tv.dogegg.online'))
           return;
         // 用 localStorage 跨 iframe 去重，防止多个脚本实例重复执行
         const cmdId = 'nav_' + data.timestamp + '_' + data.direction;
-        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        const lastCmd = localStorage.getItem('__lunatv_cmd__');
         if (lastCmd === cmdId) return;
-        localStorage.setItem('__dogegg_cmd__', cmdId);
-        console.log('收到Dogegg导航命令:', data.direction);
+        localStorage.setItem('__lunatv_cmd__', cmdId);
+        console.log('收到LunaTV导航命令:', data.direction);
 
         // 判断是否在播放页面
         if (window.location.href.includes('/play')) {
@@ -1038,75 +1041,75 @@
             const activeTab = getActiveTabName();
             console.log('当前激活Tab:', activeTab);
             if (activeTab === '选集') {
-              dogeggEpisodeNavigate(data.direction);
+              lunatvEpisodeNavigate(data.direction);
             } else {
-              dogeggPlaySourceNavigate(data.direction);
+              lunatvPlaySourceNavigate(data.direction);
             }
           } else if (data.direction === 'left' || data.direction === 'right') {
             // 左右键：控制视频播放器快进/快退
-            dogeggVideoSeek(data.direction);
+            lunatvVideoSeek(data.direction);
           } else {
-            dogeggNavigate(data.direction);
+            lunatvNavigate(data.direction);
           }
         } else {
           // 非播放页面：卡片导航
-          dogeggNavigate(data.direction);
+          lunatvNavigate(data.direction);
         }
       });
 
-      // 处理Dogegg点击命令
-      socket.on('dogegg_click_command', function (data) {
+      // 处理LunaTV点击命令
+      socket.on('lunatv_click_command', function (data) {
         if (!window.location.href.includes('tv.dogegg.online'))
           return;
         const cmdId = 'click_' + data.timestamp;
-        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        const lastCmd = localStorage.getItem('__lunatv_cmd__');
         if (lastCmd === cmdId) return;
-        localStorage.setItem('__dogegg_cmd__', cmdId);
-        console.log('收到Dogegg点击命令');
+        localStorage.setItem('__lunatv_cmd__', cmdId);
+        console.log('收到LunaTV点击命令');
 
         // 判断是否在播放页面
         if (window.location.href.includes('/play')) {
           const activeTab = getActiveTabName();
           if (activeTab === '选集') {
-            dogeggEpisodeClick();
+            lunatvEpisodeClick();
           } else {
-            dogeggPlaySourceClick();
+            lunatvPlaySourceClick();
           }
         } else {
-          dogeggClick();
+          lunatvClick();
         }
       });
 
-      // 处理Dogegg Tab切换命令
-      socket.on('dogegg_tab_command', function (data) {
+      // 处理LunaTV Tab切换命令
+      socket.on('lunatv_tab_command', function (data) {
         if (!window.location.href.includes('tv.dogegg.online/play')) return;
         const cmdId = 'tab_' + data.timestamp;
-        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        const lastCmd = localStorage.getItem('__lunatv_cmd__');
         if (lastCmd === cmdId) return;
-        localStorage.setItem('__dogegg_cmd__', cmdId);
-        console.log('收到Dogegg Tab切换命令:', data.tab);
+        localStorage.setItem('__lunatv_cmd__', cmdId);
+        console.log('收到LunaTV Tab切换命令:', data.tab);
         switchToPlayTab(data.tab);
       });
 
-      // 处理Dogegg首页命令
-      socket.on('dogegg_home_command', function (data) {
+      // 处理LunaTV首页命令
+      socket.on('lunatv_home_command', function (data) {
         const cmdId = 'home_' + data.timestamp;
-        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        const lastCmd = localStorage.getItem('__lunatv_cmd__');
         if (lastCmd === cmdId) return;
-        localStorage.setItem('__dogegg_cmd__', cmdId);
-        console.log('收到Dogegg首页命令:', data.url);
+        localStorage.setItem('__lunatv_cmd__', cmdId);
+        console.log('收到LunaTV首页命令:', data.url);
         window.location.href = data.url;
       });
 
-      // 处理Dogegg搜索命令
-      socket.on('dogegg_search_command', function (data) {
+      // 处理LunaTV搜索命令
+      socket.on('lunatv_search_command', function (data) {
         const cmdId = 'search_' + data.timestamp;
-        const lastCmd = localStorage.getItem('__dogegg_cmd__');
+        const lastCmd = localStorage.getItem('__lunatv_cmd__');
         if (lastCmd === cmdId) return;
-        localStorage.setItem('__dogegg_cmd__', cmdId);
+        localStorage.setItem('__lunatv_cmd__', cmdId);
 
         const keyword = data.keyword;
-        console.log('收到Dogegg搜索命令, 关键词:', keyword);
+        console.log('收到LunaTV搜索命令, 关键词:', keyword);
 
         // 构建搜索URL
         const searchUrl = `https://tv.dogegg.online/search?q=${encodeURIComponent(keyword)}`;
@@ -1114,7 +1117,7 @@
 
         // 显示通知
         GM_notification({
-          title: 'Dogegg搜索',
+          title: 'LunaTV搜索',
           text: `正在搜索: ${keyword}`,
           timeout: 3000
         });
@@ -1224,7 +1227,7 @@
       mode = 'bilibili';
       if (currentUrl.includes('page=History')) subMode = 'history';
     } else if (currentUrl.includes('tv.dogegg.online')) {
-      mode = 'dogegg';
+      mode = 'lunatv';
     } else if (currentUrl.includes('tv.cctv.com')) {
       mode = 'cctv';
     } else if (currentUrl.includes('gdtv.cn')) {
