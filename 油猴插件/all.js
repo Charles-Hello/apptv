@@ -31,6 +31,7 @@
   const WS_URL = 'http://localhost:5003';
   let socket;
   let connectionStatus = '未连接';
+  let controlPanelEl = null; // 面板元素引用（可能在 document 或 Shadow DOM 中）
 
   // WebSocket重连相关变量
   let wsReconnectAttempts = 0;
@@ -1307,9 +1308,9 @@
 
   // 更新状态显示
   function updateStatus() {
-    const statusElement = document.getElementById('ws-connection-status');
+    const statusElement = controlPanelEl ? controlPanelEl.querySelector('#ws-connection-status') : document.getElementById('ws-connection-status');
     if (statusElement) {
-      statusElement.textContent = connectionStatus;
+      statusElement.textContent = '● ' + connectionStatus;
       statusElement.className = getStatusClass(connectionStatus);
     }
   }
@@ -1433,6 +1434,7 @@
   function createControlPanel() {
     const panel = document.createElement('div');
     panel.id = 'ws-control-panel';
+    controlPanelEl = panel; // 保存引用，供 querySelector 在任意 DOM 树中使用
 
     // 如果不在目标网站上，默认隐藏
     if (!isTargetWebsite) {
@@ -1441,19 +1443,15 @@
 
     panel.innerHTML = `
       <div class="ws-header">
-        远程控制
-        <span class="ws-close-btn">&times;</span>
+        <span id="ws-connection-status" class="status-disconnected">● 未连接</span>
+        <div class="ws-header-btns">
+          <button id="btn-reconnect" title="重新连接">🔄</button>
+          <span class="ws-close-btn">&times;</span>
+        </div>
       </div>
       <div class="ws-body">
-        <div class="ws-status-row">
-          <span>连接状态:</span>
-          <span id="ws-connection-status" class="status-disconnected">未连接</span>
-          <button id="btn-reconnect" title="重新连接">🔄</button>
-        </div>
         <div class="qr-container">
-          <h4>扫码打开遥控器</h4>
           <div id="qrcode-holder" class="qrcode-wrapper"></div>
-          <p class="qr-hint">使用手机扫描二维码访问遥控器</p>
         </div>
       </div>
     `;
@@ -1465,7 +1463,7 @@
         position: fixed;
         bottom: 20px;
         right: 20px;
-        width: 280px;
+        width: 220px;
         background: #ffffff;
         border: 1px solid #bbbbbb;
         border-radius: 8px;
@@ -1477,66 +1475,60 @@
         color: #222222;
       }
       .ws-header {
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #3a75c4;
         color: white;
         font-weight: bold;
         border-radius: 8px 8px 0 0;
         display: flex;
         justify-content: space-between;
-        font-size: 15px;
+        align-items: center;
+        font-size: 13px;
+      }
+      .ws-header-btns {
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
       .ws-close-btn {
         cursor: pointer;
         font-size: 18px;
         color: white;
+        line-height: 1;
       }
       .ws-body {
-        padding: 12px;
+        padding: 6px;
         background: #ffffff;
         color: #222222;
         border-radius: 0 0 8px 8px;
       }
-      .ws-status-row {
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        color: #222222;
-        font-weight: 500;
-      }
-      .ws-status-row span:first-child {
-        margin-right: 8px;
-        font-weight: bold;
-        width: 70px;
-        color: #222222;
-      }
       #btn-reconnect {
-        margin-left: 8px;
-        background: #f0f0f0;
-        border: 1px solid #dddddd;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.4);
         border-radius: 50%;
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         cursor: pointer;
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 14px;
+        font-size: 12px;
         padding: 0;
+        color: white;
       }
       #btn-reconnect:hover {
-        background: #e0e0e0;
+        background: rgba(255,255,255,0.35);
       }
       .status-connected {
-        color: #006600;
+        color: #90ee90;
         font-weight: bold;
       }
       .status-disconnected {
-        color: #444444;
+        color: rgba(255,255,255,0.75);
         font-weight: bold;
       }
       .status-error {
-        color: #cc0000;
+        color: #ffaaaa;
         font-weight: bold;
       }
       .status-reconnecting {
@@ -1544,27 +1536,16 @@
         font-weight: bold;
       }
       .qr-container {
-        margin-top: 15px;
+        margin-top: 6px;
         text-align: center;
-      }
-      .qr-container h4 {
-        margin: 0 0 12px 0;
-        font-size: 14px;
-        color: #222222;
-        font-weight: bold;
       }
       .qrcode-wrapper {
         display: inline-block;
-        padding: 10px;
+        padding: 3px;
         background: white;
-        border: 2px solid #3a75c4;
-        border-radius: 8px;
-        margin: 10px 0;
-      }
-      .qr-hint {
-        margin: 10px 0 0 0;
-        font-size: 12px;
-        color: #666666;
+        border: 1px solid #3a75c4;
+        border-radius: 6px;
+        margin: 2px 0;
       }
       .ws-minimized {
         width: 45px;
@@ -1591,6 +1572,27 @@
     document.body.appendChild(style);
     document.body.appendChild(panel);
 
+    // B站使用 BewlyCat 扩展，其 CSS 会隐藏 body > * 的非白名单元素
+    // 解决方案：将面板注入到 BewlyCat 的 open Shadow DOM 中（逃离隐藏规则）
+    if (window.location.href.includes('bilibili.com')) {
+      function tryMoveToBewlyShadow() {
+        const bewly = document.querySelector('#bewly');
+        if (bewly && bewly.shadowRoot) {
+          bewly.shadowRoot.appendChild(style);
+          bewly.shadowRoot.appendChild(panel);
+          return true;
+        }
+        return false;
+      }
+      if (!tryMoveToBewlyShadow()) {
+        // BewlyCat 尚未挂载，等待 #bewly 出现
+        const bewlyObserver = new MutationObserver(() => {
+          if (tryMoveToBewlyShadow()) bewlyObserver.disconnect();
+        });
+        bewlyObserver.observe(document.body, { childList: true });
+      }
+    }
+
     // 添加事件监听
     const closeBtn = panel.querySelector('.ws-close-btn');
     closeBtn.addEventListener('click', function () {
@@ -1599,7 +1601,7 @@
 
     // 添加重连按钮事件
     if (isTargetWebsite) {
-      const reconnectBtn = document.getElementById('btn-reconnect');
+      const reconnectBtn = controlPanelEl ? controlPanelEl.querySelector('#btn-reconnect') : document.getElementById('btn-reconnect');
       if (reconnectBtn) {
         reconnectBtn.addEventListener('click', function () {
           // 手动触发重连
@@ -1630,7 +1632,7 @@
 
   // 生成二维码
   async function generateQRCode() {
-    const qrcodeHolder = document.getElementById('qrcode-holder');
+    const qrcodeHolder = controlPanelEl ? controlPanelEl.querySelector('#qrcode-holder') : document.getElementById('qrcode-holder');
     if (!qrcodeHolder) {
       console.error('未找到二维码容器');
       return;
@@ -1652,8 +1654,8 @@
     try {
       new QRCode(qrcodeHolder, {
         text: controlUrl,
-        width: 180,
-        height: 180,
+        width: 200,
+        height: 200,
         colorDark: "#000000",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M

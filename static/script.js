@@ -112,6 +112,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // HDR切换按钮
   const toggleHdrBtn = document.getElementById('toggle-hdr-btn');
 
+  // 全屏按钮
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+
   // 保存当前音量
   let currentVolume = 0;
   let lastNonZeroVolume = 50; // 存储上一次非零音量值
@@ -133,26 +136,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // 央视频道列表
   const cctvChannels = [
-    { name: "CCTV-1 综合", url: "https://tv.cctv.com/live/cctv1/" },
-    { name: "CCTV-2 财经", url: "https://tv.cctv.com/live/cctv2/" },
-    { name: "CCTV-3 综艺", url: "https://tv.cctv.com/live/cctv3/" },
-    { name: "CCTV-4 中文国际（亚）", url: "https://tv.cctv.com/live/cctv4/" },
-    { name: "CCTV-5 体育", url: "https://tv.cctv.com/live/cctv5/" },
-    { name: "CCTV-5+ 体育赛事", url: "https://tv.cctv.com/live/cctv5plus/" },
-    { name: "CCTV-6 电影", url: "https://tv.cctv.com/live/cctv6/" },
-    { name: "CCTV-7 国防军事", url: "https://tv.cctv.com/live/cctv7/" },
-    { name: "CCTV-8 电视剧", url: "https://tv.cctv.com/live/cctv8/" },
-    { name: "CCTV-9 纪录", url: "https://tv.cctv.com/live/cctvjilu/" },
-    { name: "CCTV-10 科教", url: "https://tv.cctv.com/live/cctv10/" },
-    { name: "CCTV-11 戏曲", url: "https://tv.cctv.com/live/cctv11/" },
-    { name: "CCTV-12 社会与法", url: "https://tv.cctv.com/live/cctv12/" },
-    { name: "CCTV-13 新闻", url: "https://tv.cctv.com/live/cctv13/" },
-    { name: "CCTV-14 少儿", url: "https://tv.cctv.com/live/cctvchild/" },
-    { name: "CCTV-15 音乐", url: "https://tv.cctv.com/live/cctv15/" },
-    { name: "CCTV-16 奥林匹克", url: "https://tv.cctv.com/live/cctv16/" },
-    { name: "CCTV-17 农业农村", url: "https://tv.cctv.com/live/cctv17/" },
-    { name: "CCTV-4 中文国际（欧）", url: "https://tv.cctv.com/live/cctveurope/index.shtml" },
-    { name: "CCTV-4 中文国际（美）", url: "https://tv.cctv.com/live/cctvamerica/" }
+    { name: "1 综合", url: "https://tv.cctv.com/live/cctv1/" },
+    { name: "2 财经", url: "https://tv.cctv.com/live/cctv2/" },
+    { name: "3 综艺", url: "https://tv.cctv.com/live/cctv3/" },
+    { name: "4 中文国际（亚）", url: "https://tv.cctv.com/live/cctv4/" },
+    { name: "5 体育", url: "https://tv.cctv.com/live/cctv5/" },
+    { name: "5+ 体育赛事", url: "https://tv.cctv.com/live/cctv5plus/" },
+    { name: "6 电影", url: "https://tv.cctv.com/live/cctv6/" },
+    { name: "7 国防军事", url: "https://tv.cctv.com/live/cctv7/" },
+    { name: "8 电视剧", url: "https://tv.cctv.com/live/cctv8/" },
+    { name: "9 纪录", url: "https://tv.cctv.com/live/cctvjilu/" },
+    { name: "10 科教", url: "https://tv.cctv.com/live/cctv10/" },
+    { name: "11 戏曲", url: "https://tv.cctv.com/live/cctv11/" },
+    { name: "12 社会与法", url: "https://tv.cctv.com/live/cctv12/" },
+    { name: "13 新闻", url: "https://tv.cctv.com/live/cctv13/" },
+    { name: "14 少儿", url: "https://tv.cctv.com/live/cctvchild/" },
+    { name: "15 音乐", url: "https://tv.cctv.com/live/cctv15/" },
+    { name: "16 奥林匹克", url: "https://tv.cctv.com/live/cctv16/" },
+    { name: "7 农业农村", url: "https://tv.cctv.com/live/cctv17/" },
+    { name: "中文国际（欧）", url: "https://tv.cctv.com/live/cctveurope/index.shtml" },
+    { name: "中文国际（美）", url: "https://tv.cctv.com/live/cctvamerica/" }
   ];
 
   // 广东频道列表
@@ -1401,6 +1404,15 @@ document.addEventListener('DOMContentLoaded', function () {
         statusText.textContent = '正在切换HDR状态...';
       } else {
         statusText.textContent = 'WebSocket未连接，无法切换HDR';
+      }
+    });
+  }
+
+  // 全屏按钮
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('toggle_fullscreen');
       }
     });
   }

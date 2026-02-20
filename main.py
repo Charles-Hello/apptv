@@ -8,7 +8,7 @@ import asyncio
 import websockets
 import requests
 import socket
-from 测试.focus_app import focus_app
+from 测试.focus_app import focus_app, focus_chrome_window_by_url
 from cafe import sleep_mac, set_wake_time, setup_passwordless_sudo
 
 app = Flask(__name__)
@@ -552,7 +552,7 @@ def handle_switch_desktop(data):
 def handle_switch_desktop():
     """处理桌面切换请求"""
     press_key("space")
-    focus_app("Google Chrome")
+    focus_chrome_window_by_url("gdtv.cn")
     socketio.emit('open_url_command', {
                   "url": 'https://www.gdtv.cn/tvChannelDetail/45',
                   "timestamp": int(__import__('time').time())
@@ -562,7 +562,7 @@ def handle_switch_desktop():
 def handle_switch_desktop():
     """处理桌面切换请求"""
     press_key("space")
-    focus_app("Google Chrome")
+    focus_app("Dong Media.app")
     socketio.emit('open_url_command', {
                   "url": 'https://tv.cctv.com/live/cctv13/',
                   "timestamp": int(__import__('time').time())
@@ -604,7 +604,7 @@ def handle_guangdong_channel(data):
 def handle_switch_bilibili():
     """处理切换到哔哩哔哩的请求"""
     press_key("space")
-    focus_app("Google Chrome")
+    focus_chrome_window_by_url("bilibili.com")
     socketio.emit('open_url_command', {
                   "url": 'https://www.bilibili.com/',
                   "timestamp": int(__import__('time').time())
@@ -912,6 +912,18 @@ def handle_toggle_hdr():
     })
     
     print(f"HDR已切换为: {'开启' if hdr_status['is_on'] else '关闭'}")
+
+@socketio.on('toggle_fullscreen')
+def handle_toggle_fullscreen():
+    """先聚焦 Dong Media，再发送全屏快捷键 Command+Control+F"""
+    try:
+        focus_app("Dong Media")
+        time.sleep(0.5)
+        cmd = "osascript -e 'tell application \"System Events\" to key code 3 using {command down, control down}'"
+        subprocess.run(cmd, shell=True)
+        emit('fullscreen_response', {"success": True})
+    except Exception as e:
+        emit('fullscreen_response', {"success": False, "message": str(e)})
 
 # 主页路由
 @app.route('/')
