@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // Tab切换相关元素
   const tabItems = document.querySelectorAll('.tab-item');
   const tabContents = document.querySelectorAll('.tab-content');
-  const movieIframe = document.getElementById('movie-iframe');
 
   // Tab切换函数
   function switchTab(targetTab) {
@@ -18,14 +17,132 @@ document.addEventListener('DOMContentLoaded', function () {
       targetTabItem.classList.add('active');
       targetTabContent.classList.add('active');
 
-      // 如果切换到电影tab，确保iframe已加载
-      if (targetTab === 'movie' && movieIframe) {
-        // 如果iframe还没有加载过，设置src
-        if (!movieIframe.src || movieIframe.src === 'about:blank') {
-          movieIframe.src = 'https://movie.tnanko.top/';
-        }
+      // 如果切换到分享tab，生成二维码
+      if (targetTab === 'share') {
+        generateShareQRCode();
+        renderWifiDisplay();
       }
     }
+  }
+
+  // 生成分享页面二维码
+  let shareQRCodeGenerated = false;
+  async function generateShareQRCode() {
+    const qrcodeHolder = document.getElementById('share-qrcode');
+    const shareUrl = document.getElementById('share-url');
+    const shareIp = document.getElementById('share-ip');
+    if (!qrcodeHolder) return;
+
+    // 避免重复生成（除非手动刷新）
+    if (shareQRCodeGenerated && !generateShareQRCode._forceRefresh) return;
+    generateShareQRCode._forceRefresh = false;
+
+    shareQRCodeGenerated = true;
+    qrcodeHolder.innerHTML = '<p class="share-loading">正在获取局域网地址...</p>';
+    if (shareUrl) shareUrl.textContent = '正在获取...';
+    if (shareIp) shareIp.textContent = '';
+
+    try {
+      const resp = await fetch('/get-local-ip');
+      const data = await resp.json();
+      const url = data.url || `http://${data.ip}:5003`;
+      const ip = data.ip || '';
+
+      if (shareUrl) shareUrl.textContent = url;
+
+      qrcodeHolder.innerHTML = '';
+      new QRCode(qrcodeHolder, {
+        text: url,
+        width: 110,
+        height: 110,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch (e) {
+      qrcodeHolder.innerHTML = '<p class="share-error">获取地址失败，请检查服务器连接</p>';
+      if (shareUrl) shareUrl.textContent = '获取失败';
+    }
+  }
+
+  // ========== WiFi 密码分享 ==========
+  function renderWifiDisplay() {
+    const holder = document.getElementById('wifi-qrcode');
+    if (!holder) return;
+    holder.innerHTML = '';
+    try {
+      new QRCode(holder, {
+        text: 'WIFI:S:Xiaomi_ACA9;T:WPA;P:aa123456;H:false;;',
+        width: 110,
+        height: 110,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {
+      holder.innerHTML = '<p class="share-error">生成失败</p>';
+    }
+  }
+
+  // ========== 点击复制 ==========
+  // Toast 提示
+  function showCopyToast(text) {
+    let toast = document.getElementById('copy-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'copy-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = '已复制：' + text;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function () { toast.classList.remove('show'); }, 2000);
+  }
+
+  function copyToClipboard(text) {
+    function onSuccess() { showCopyToast(text); }
+
+    // 优先用 Clipboard API（HTTPS 下可用）
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(fallback);
+    } else {
+      fallback();
+    }
+
+    function fallback() {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, 99999); // iOS
+      try { document.execCommand('copy'); onSuccess(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+  }
+
+  // 局域网地址复制
+  const shareIpInfo = document.querySelector('#share-content .share-item:first-child .share-ip-info');
+  if (shareIpInfo) {
+    shareIpInfo.addEventListener('click', function () {
+      const urlEl = document.getElementById('share-url');
+      if (urlEl && urlEl.textContent && urlEl.textContent !== '正在获取...') {
+        copyToClipboard(urlEl.textContent);
+      }
+    });
+  }
+
+  // WiFi 名称 & 密码复制
+  const wifiIpInfo = document.querySelector('#share-content .wifi-card .share-ip-info');
+  if (wifiIpInfo) {
+    wifiIpInfo.addEventListener('click', function (e) {
+      const target = e.target.closest('.share-url, .share-ip');
+      if (!target) return;
+      let text = target.textContent;
+      if (target.classList.contains('share-ip')) text = text.replace(/^密码：/, '');
+      copyToClipboard(text);
+    });
   }
 
   // 添加tab点击事件监听器
@@ -96,6 +213,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const lunatvHistoryNextBtn = document.getElementById('lunatv-history-next-btn');
   const lunatvHistoryPageInfo = document.getElementById('lunatv-history-page-info');
   const lunatvHistoryPagination = document.getElementById('lunatv-history-pagination');
+  // LunaTV播放历史相关DOM
+  const lunatvPlayHistoryRefreshBtn = document.getElementById('lunatv-play-history-refresh-btn');
+  const lunatvPlayHistoryToggleBtn = document.getElementById('lunatv-play-history-toggle-btn');
+  const lunatvPlayHistoryGrid = document.getElementById('lunatv-play-history-grid');
+  const lunatvPlayHistoryPagination = document.getElementById('lunatv-play-history-pagination');
+  const lunatvPlayHistoryPrevBtn = document.getElementById('lunatv-play-history-prev-btn');
+  const lunatvPlayHistoryNextBtn = document.getElementById('lunatv-play-history-next-btn');
+  const lunatvPlayHistoryPageInfo = document.getElementById('lunatv-play-history-page-info');
   const searchHistoryContainer = document.getElementById('search-history-container');
   const searchHistoryList = document.getElementById('search-history-list');
   const clearHistoryBtn = document.getElementById('clear-history-btn');
@@ -522,6 +647,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (lunatvSearchBtn) lunatvSearchBtn.disabled = !enable;
     if (lunatvTabEpisodeBtn) lunatvTabEpisodeBtn.disabled = !enable;
     if (lunatvTabSourceBtn) lunatvTabSourceBtn.disabled = !enable;
+    if (lunatvPlayHistoryRefreshBtn) lunatvPlayHistoryRefreshBtn.disabled = !enable;
     // 央视频道按钮
     if (cctvChannelsGrid) {
       const channelBtns = cctvChannelsGrid.querySelectorAll('.cctv-channel-btn');
@@ -700,6 +826,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
             if (backBtn) backBtn.style.display = 'inline-flex';
+            // 进入 LunaTV 模式且尚无数据时，自动触发播放历史拉取
+            if (lunatvPlayHistory.length === 0 && socket && socket.connected) {
+              if (lunatvPlayHistoryGrid) lunatvPlayHistoryGrid.innerHTML = '<p class="lunatv-play-history-hint">正在获取历史记录...</p>';
+              if (lunatvPlayHistoryPagination) lunatvPlayHistoryPagination.style.display = 'none';
+              socket.emit('lunatv_get_play_history');
+            }
           } else if (isCCTVMode) {
             // 央视模式：显示央视频道列表
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
@@ -863,6 +995,20 @@ document.addEventListener('DOMContentLoaded', function () {
       socket.on('bilibili_sub_mode_update', function (data) {
         isBilibiliHistoryMode = (data.sub_mode === 'history');
         console.log('B站子模式:', data.sub_mode);
+      });
+
+      // LunaTV播放历史数据更新
+      socket.on('lunatv_play_history_update', function (data) {
+        if (data.error) {
+          if (lunatvPlayHistoryGrid) {
+            lunatvPlayHistoryGrid.innerHTML = `<p class="lunatv-play-history-hint" style="color:var(--apple-dark-danger)">加载失败: ${data.error}</p>`;
+          }
+          return;
+        }
+        const records = data.records || {};
+        lunatvPlayHistory = Object.values(records).sort((a, b) => b.save_time - a.save_time);
+        lunatvPlayHistoryPage = 0;
+        renderLunatvPlayHistory();
       });
 
     } catch (e) {
@@ -1616,4 +1762,113 @@ document.addEventListener('DOMContentLoaded', function () {
   // 恢复状态
   restoreCCTVCollapseState();
   restoreGuangdongCollapseState();
+
+  // ========== LunaTV播放历史 ==========
+  let lunatvPlayHistory = [];
+  let lunatvPlayHistoryPage = 0;
+  const LUNATV_PLAY_HISTORY_PAGE_SIZE = 4;
+  const LUNATV_PLAY_HISTORY_COLLAPSED_KEY = 'lunatvPlayHistoryCollapsed';
+
+  function renderLunatvPlayHistory() {
+    if (!lunatvPlayHistoryGrid) return;
+
+    if (lunatvPlayHistory.length === 0) {
+      lunatvPlayHistoryGrid.innerHTML = '<p class="lunatv-play-history-hint">暂无播放历史</p>';
+      if (lunatvPlayHistoryPagination) lunatvPlayHistoryPagination.style.display = 'none';
+      return;
+    }
+
+    const totalPages = Math.ceil(lunatvPlayHistory.length / LUNATV_PLAY_HISTORY_PAGE_SIZE);
+    const start = lunatvPlayHistoryPage * LUNATV_PLAY_HISTORY_PAGE_SIZE;
+    const pageItems = lunatvPlayHistory.slice(start, start + LUNATV_PLAY_HISTORY_PAGE_SIZE);
+
+    lunatvPlayHistoryGrid.innerHTML = '';
+    pageItems.forEach(function(record) {
+      const progress = record.total_time > 0 ? Math.min(100, Math.round((record.play_time / record.total_time) * 100)) : 0;
+      const item = document.createElement('div');
+      item.className = 'lunatv-play-history-item';
+      item.innerHTML = `
+        <img src="${record.cover || ''}" alt="${record.title}" class="lunatv-play-history-cover" onerror="this.src='';this.style.background='var(--apple-dark-border)'">
+        <div class="lunatv-play-history-info">
+          <p class="lunatv-play-history-item-title">${record.title}</p>
+          <p class="lunatv-play-history-source">${record.source_name || ''}</p>
+          <p class="lunatv-play-history-remarks">${record.remarks || ''}</p>
+          <div class="lunatv-play-history-progress-bar">
+            <div class="lunatv-play-history-progress-fill" style="width:${progress}%"></div>
+          </div>
+          <p class="lunatv-play-history-progress-text">${progress}%</p>
+        </div>
+      `;
+      item.addEventListener('click', function() {
+        if (socket && socket.connected) {
+          socket.emit('lunatv_play_record', { record: record });
+          if (statusText) statusText.textContent = `正在打开: ${record.title}`;
+        }
+      });
+      lunatvPlayHistoryGrid.appendChild(item);
+    });
+
+    if (lunatvPlayHistoryPagination) {
+      if (totalPages > 1) {
+        lunatvPlayHistoryPagination.style.display = 'flex';
+        if (lunatvPlayHistoryPrevBtn) lunatvPlayHistoryPrevBtn.disabled = lunatvPlayHistoryPage === 0;
+        if (lunatvPlayHistoryNextBtn) lunatvPlayHistoryNextBtn.disabled = lunatvPlayHistoryPage >= totalPages - 1;
+        if (lunatvPlayHistoryPageInfo) lunatvPlayHistoryPageInfo.textContent = `${lunatvPlayHistoryPage + 1}/${totalPages}`;
+      } else {
+        lunatvPlayHistoryPagination.style.display = 'none';
+      }
+    }
+  }
+
+  // 刷新按钮
+  if (lunatvPlayHistoryRefreshBtn) {
+    lunatvPlayHistoryRefreshBtn.addEventListener('click', function() {
+      if (socket && socket.connected) {
+        if (lunatvPlayHistoryGrid) lunatvPlayHistoryGrid.innerHTML = '<p class="lunatv-play-history-hint">正在获取历史记录...</p>';
+        if (lunatvPlayHistoryPagination) lunatvPlayHistoryPagination.style.display = 'none';
+        socket.emit('lunatv_get_play_history');
+      }
+    });
+  }
+
+  // 翻页按钮
+  if (lunatvPlayHistoryPrevBtn) {
+    lunatvPlayHistoryPrevBtn.addEventListener('click', function() {
+      if (lunatvPlayHistoryPage > 0) {
+        lunatvPlayHistoryPage--;
+        renderLunatvPlayHistory();
+      }
+    });
+  }
+  if (lunatvPlayHistoryNextBtn) {
+    lunatvPlayHistoryNextBtn.addEventListener('click', function() {
+      const totalPages = Math.ceil(lunatvPlayHistory.length / LUNATV_PLAY_HISTORY_PAGE_SIZE);
+      if (lunatvPlayHistoryPage < totalPages - 1) {
+        lunatvPlayHistoryPage++;
+        renderLunatvPlayHistory();
+      }
+    });
+  }
+
+  // 展开/收缩按钮
+  function restoreLunatvPlayHistoryCollapseState() {
+    const isCollapsed = localStorage.getItem(LUNATV_PLAY_HISTORY_COLLAPSED_KEY) === 'true';
+    if (isCollapsed && lunatvPlayHistoryGrid && lunatvPlayHistoryToggleBtn) {
+      lunatvPlayHistoryGrid.classList.add('collapsed');
+      if (lunatvPlayHistoryPagination) lunatvPlayHistoryPagination.classList.add('collapsed');
+      lunatvPlayHistoryToggleBtn.classList.add('collapsed');
+    }
+  }
+
+  if (lunatvPlayHistoryToggleBtn) {
+    lunatvPlayHistoryToggleBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const isCollapsed = lunatvPlayHistoryGrid.classList.toggle('collapsed');
+      if (lunatvPlayHistoryPagination) lunatvPlayHistoryPagination.classList.toggle('collapsed');
+      lunatvPlayHistoryToggleBtn.classList.toggle('collapsed');
+      localStorage.setItem(LUNATV_PLAY_HISTORY_COLLAPSED_KEY, isCollapsed);
+    });
+  }
+
+  restoreLunatvPlayHistoryCollapseState();
 });

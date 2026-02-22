@@ -1486,6 +1486,146 @@ footer {
     border-radius: 0;
 }
 
+/* 分享页面 */
+.share-page {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    height: calc(100vh - 65px);
+    padding: 20px 16px;
+    gap: 14px;
+    box-sizing: border-box;
+    background: var(--apple-dark-bg);
+    overflow: hidden;
+}
+
+.share-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.share-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--apple-dark-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 2px;
+    white-space: nowrap;
+}
+
+.share-card {
+    background: var(--apple-dark-card-bg);
+    border: 1px solid var(--apple-dark-border);
+    border-radius: 20px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+    box-sizing: border-box;
+}
+
+.wifi-card {
+    flex-direction: row;
+    align-items: center;
+}
+
+.share-qrcode-wrapper {
+    background: #fff;
+    padding: 8px;
+    border-radius: 10px;
+    display: inline-block;
+    line-height: 0;
+    flex-shrink: 0;
+}
+
+.share-ip-info {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.share-ip-info .share-url,
+.share-ip-info .share-ip {
+    cursor: pointer;
+    transition: opacity 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.share-ip-info .share-url:active,
+.share-ip-info .share-ip:active {
+    opacity: 0.5;
+}
+
+.share-ip-label {
+    font-size: 11px;
+    color: var(--apple-dark-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin: 0 0 6px;
+}
+
+.share-url {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--apple-dark-primary);
+    margin: 0 0 2px;
+    word-break: break-all;
+}
+
+.share-ip {
+    font-size: 14px;
+    color: var(--apple-dark-text-secondary);
+    margin: 0;
+    margin-top: 4px;
+}
+
+.share-refresh-btn {
+    margin-top: 10px;
+    align-self: center;
+}
+
+.share-loading {
+    color: var(--apple-dark-text-secondary);
+    font-size: 12px;
+    margin: 8px 0;
+}
+
+.share-error {
+    color: var(--apple-dark-danger);
+    font-size: 12px;
+    margin: 8px 0;
+}
+
+/* 复制 Toast */
+#copy-toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(30, 30, 32, 0.92);
+    color: #fff;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 20px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 9999;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.12);
+}
+
+#copy-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 /* 鍝嶅簲寮忚皟鏁?*/
 @media (max-width: 480px) {
     .tab-navigation {
@@ -2336,6 +2476,146 @@ input:checked + .lunatv-toggle-slider {
 .lunatv-history-page-info {
     font-size: 12px;
     color: rgba(235, 235, 245, 0.6);
+}
+
+/* LunaTV播放历史 */
+.lunatv-play-history-container {
+    margin-top: 14px;
+    border-top: 1px solid rgba(74, 222, 128, 0.15);
+    padding-top: 12px;
+}
+
+.lunatv-play-history-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--apple-dark-text);
+    cursor: default;
+}
+
+.lunatv-play-history-header-btns {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.lunatv-play-history-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.lunatv-play-history-grid.collapsed {
+    display: none;
+}
+
+.lunatv-play-history-item {
+    display: flex;
+    gap: 12px;
+    background: var(--apple-dark-card-bg);
+    border: 1px solid var(--apple-dark-border);
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+    align-items: flex-start;
+}
+
+.lunatv-play-history-item:hover {
+    background: rgba(74, 222, 128, 0.08);
+    border-color: rgba(74, 222, 128, 0.3);
+    transform: translateY(-1px);
+}
+
+.lunatv-play-history-cover {
+    width: 72px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+    background: var(--apple-dark-border);
+}
+
+.lunatv-play-history-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.lunatv-play-history-item-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--apple-dark-text);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lunatv-play-history-source {
+    font-size: 11px;
+    color: #4ade80;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lunatv-play-history-remarks {
+    font-size: 11px;
+    color: var(--apple-dark-text-secondary);
+    margin: 0;
+}
+
+.lunatv-play-history-progress-bar {
+    height: 4px;
+    background: var(--apple-dark-border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.lunatv-play-history-progress-fill {
+    height: 100%;
+    background: #4ade80;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.lunatv-play-history-progress-text {
+    font-size: 10px;
+    color: var(--apple-dark-text-secondary);
+    margin: 2px 0 0;
+    text-align: right;
+}
+
+.lunatv-play-history-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(74, 222, 128, 0.15);
+}
+
+.lunatv-play-history-pagination.collapsed {
+    display: none;
+}
+
+.lunatv-play-history-hint {
+    color: var(--apple-dark-text-secondary);
+    font-size: 13px;
+    text-align: center;
+    padding: 12px 0;
+    margin: 0;
 }
 
 .lunatv-tab-group {

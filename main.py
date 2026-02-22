@@ -760,6 +760,32 @@ def handle_lunatv_tab(data):
     })
     emit('lunatv_tab_response', {"success": True, "tab": tab})
 
+@socketio.on('lunatv_get_play_history')
+def handle_lunatv_get_play_history():
+    """请求油猴脚本获取LunaTV播放历史"""
+    print("收到获取LunaTV播放历史请求")
+    socketio.emit('lunatv_get_play_history_command', {
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('lunatv_get_play_history_response', {"success": True})
+
+@socketio.on('lunatv_play_history_data')
+def handle_lunatv_play_history_data(data):
+    """接收油猴脚本回传的LunaTV播放历史数据，广播给所有控制端"""
+    print("收到LunaTV播放历史数据")
+    socketio.emit('lunatv_play_history_update', data)
+
+@socketio.on('lunatv_play_record')
+def handle_lunatv_play_record(data):
+    """处理播放指定历史记录的请求"""
+    record = data.get('record', {})
+    print(f"收到LunaTV播放记录请求: {record.get('title', '未知')}")
+    socketio.emit('lunatv_play_record_command', {
+        "record": record,
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('lunatv_play_record_response', {"success": True})
+
 @socketio.on('report_mode')
 def handle_report_mode(data):
     """接收油猴脚本回传的模式状态"""

@@ -1127,6 +1127,61 @@
         window.location.href = searchUrl;
       });
 
+      // 处理LunaTV播放历史请求（控制端请求获取历史）
+      socket.on('lunatv_get_play_history_command', function (data) {
+        console.log('收到获取LunaTV播放历史命令');
+        GM_xmlhttpRequest({
+          method: 'GET',
+          url: 'https://tv.dogegg.online/api/playrecords',
+          anonymous: false,
+          headers: {
+            'accept': '*/*',
+            'referer': 'https://tv.dogegg.online/',
+            'accept-language': 'zh-CN,zh;q=0.9'
+          },
+          onload: function (response) {
+            try {
+              const records = JSON.parse(response.responseText);
+              console.log('[播放历史] 获取成功，条数:', Object.keys(records).length);
+              socket.emit('lunatv_play_history_data', { records: records });
+            } catch (e) {
+              console.error('[播放历史] 解析失败:', e);
+              socket.emit('lunatv_play_history_data', { error: '数据解析失败', records: {} });
+            }
+          },
+          onerror: function (err) {
+            console.error('[播放历史] 请求失败:', err);
+            socket.emit('lunatv_play_history_data', { error: '请求失败，请检查登录状态', records: {} });
+          }
+        });
+      });
+
+      // 处理播放指定历史记录命令
+      socket.on('lunatv_play_record_command', function (data) {
+        const cmdId = 'playrec_' + data.timestamp;
+        const lastCmd = localStorage.getItem('__lunatv_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__lunatv_cmd__', cmdId);
+
+        const record = data.record || {};
+        console.log('[播放历史] 播放记录:', record.title);
+
+        // key 格式: "api_26+116239" → source=api_26, id=116239
+        const key = record.key || '';
+        const plusIdx = key.indexOf('+');
+        if (plusIdx === -1) {
+          console.error('[播放历史] 无效的 key:', key);
+          return;
+        }
+        const source = key.slice(0, plusIdx);       // e.g. "api_26"
+        const id = key.slice(plusIdx + 1);           // e.g. "116239"
+        const index = Math.max(0, (record.index || 1) - 1); // 1-based → 0-based
+        const url = `https://tv.dogegg.online/play?source=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}&title=${encodeURIComponent(record.title || '')}&year=${encodeURIComponent(record.year || '')}&index=${index}`;
+
+        console.log('[播放历史] 跳转到:', url);
+        window.location.href = url;
+      });
+
       // 处理ESP32按键响应
       socket.on('esp32_key_response', function (data) {
         console.log('收到ESP32按键响应:', data);
