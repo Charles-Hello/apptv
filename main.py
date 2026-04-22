@@ -8,6 +8,7 @@ import asyncio
 import websockets
 import requests
 import socket
+from urllib.parse import urlparse
 from 测试.focus_app import focus_app, focus_chrome_window_by_url
 from cafe import sleep_mac, set_wake_time, setup_passwordless_sudo
 
@@ -30,7 +31,7 @@ screen_wake_status = {
 }
 
 # 当前模式状态管理（由油猴脚本回传）
-current_mode = "normal"  # normal / bilibili / lunatv
+current_mode = "normal"  # normal / bilibili / lunatv / cctv / guangdong
 
 # 记录今天是否已经有用户触发了屏幕唤醒
 first_user_wake_triggered = False
@@ -188,6 +189,38 @@ def get_current_volume():
     cmd = "osascript -e 'output volume of (get volume settings)'"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     return int(result.stdout.strip())
+
+def focus_chrome_target(mode=None, url=None):
+    """根据页面模式或URL聚焦对应的 Chrome 标签页。"""
+    patterns = []
+
+    if url:
+        patterns.append(url)
+        try:
+            parsed = urlparse(url)
+            if parsed.netloc:
+                patterns.append(parsed.netloc)
+        except Exception:
+            pass
+
+    mode_patterns = {
+        "cctv": "tv.cctv.com",
+        "guangdong": "gdtv.cn",
+        "bilibili": "bilibili.com",
+        "lunatv": "tv.dogegg.online"
+    }
+    if mode in mode_patterns:
+        patterns.append(mode_patterns[mode])
+
+    seen = set()
+    for pattern in patterns:
+        if not pattern or pattern in seen:
+            continue
+        seen.add(pattern)
+        if focus_chrome_window_by_url(pattern):
+            return True
+
+    return focus_app("Google Chrome")
 
 # 模拟键盘上下键
 def press_key(key):
@@ -562,7 +595,7 @@ def handle_switch_desktop():
 def handle_switch_desktop():
     """处理桌面切换请求"""
     press_key("space")
-    focus_app("Dong Media.app")
+    focus_chrome_target(mode="cctv", url="https://tv.cctv.com/live/cctv13/")
     socketio.emit('open_url_command', {
                   "url": 'https://tv.cctv.com/live/cctv13/',
                   "timestamp": int(__import__('time').time())
@@ -940,10 +973,17 @@ def handle_toggle_hdr():
     print(f"HDR已切换为: {'开启' if hdr_status['is_on'] else '关闭'}")
 
 @socketio.on('toggle_fullscreen')
-def handle_toggle_fullscreen():
-    """先聚焦 Dong Media，再发送全屏快捷键 Command+Control+F"""
+def handle_toggle_fullscreen(data=None):
+    """聚焦当前网页对应的 Chrome 标签，再发送全屏快捷键 Command+Control+F"""
     try:
-        focus_app("Dong Media")
+        mode = current_mode
+        url = None
+
+        if isinstance(data, dict):
+            mode = data.get('mode') or current_mode
+            url = data.get('url')
+
+        focus_chrome_target(mode=mode, url=url)
         time.sleep(0.5)
         cmd = "osascript -e 'tell application \"System Events\" to key code 3 using {command down, control down}'"
         subprocess.run(cmd, shell=True)

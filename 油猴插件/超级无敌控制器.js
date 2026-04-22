@@ -95,95 +95,241 @@
 
   // 设置自动全屏功能
   function setupAutoFullscreen() {
-    // 监听键盘按键F触发全屏
-    document.addEventListener('keydown', function (e) {
-      if (e.keyCode === 70 && !e.ctrlKey) { // F键，但不是Ctrl+F
-        e.preventDefault();
-        toggleFullscreen();
-      }
-    });
-
-    // 设置自动全屏
-    setTimeout(function () {
-      // 检查页面是否有视频元素
-      const videoElements = document.querySelectorAll('video');
-      if (videoElements.length > 0) {
-        console.log('找到视频元素，尝试自动全屏');
-        requestFullscreen(videoElements[0]);
-      } else {
-        console.log('未找到视频元素，等待视频加载');
-        // 使用MutationObserver监听DOM变化，等待视频元素出现
-        waitForVideoElement();
-      }
-    }, 3000); // 等待3秒，确保页面加载完成
+    startVideoSoundWatch();
   }
 
+  // 监听视频真实出声后再尝试全屏，避免页面刚加载就盲目触发
+  function startVideoSoundWatch() {
+    if (window.__videoSoundWatchStarted) return;
+    window.__videoSoundWatchStarted = true;
+    window.__pageAutoFullscreenTriggered = false;
+    const isGdtvPage = window.location.href.includes('www.gdtv.cn');
 
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx && !isGdtvPage) {
+      console.log('当前浏览器不支持 AudioContext，跳过声音驱动的自动全屏');
+      return;
+    }
 
+    const ctx = AudioCtx ? new AudioCtx() : null;
+    const cache = new WeakMap();
+    const playbackCache = new WeakMap();
+    let lastState = false;
+    let detectionStableCount = 0;
+    let lastFullscreenAttemptAt = 0;
+    const triggerReason = isGdtvPage ? '检测到视频已稳定播放' : '检测到视频已开始出声';
 
-  // 等待视频元素出现
-  function waitForVideoElement() {
-    const observer = new MutationObserver(function (mutations) {
-      const videoElements = document.querySelectorAll('video');
-      if (videoElements.length > 0) {
-        console.log('视频元素已加载，尝试自动全屏');
-        requestFullscreen(videoElements[0]);
-        observer.disconnect(); // 停止监听
+    async function ensureRunning() {
+      if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch (error) {}
       }
-    });
+    }
 
-    // 监听整个文档的变化
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-    // 60秒后停止监听，避免无限等待
-    setTimeout(function () {
-      observer.disconnect();
-      console.log('停止等待视频元素');
-    }, 60000);
+    function getCandidateVideos() {
+      return Array.from(document.querySelectorAll('video')).filter(video =>
+        video &&
+        !video.paused &&
+        !video.ended &&
+        video.readyState >= 2 &&
+        !video.muted &&
+        video.volume > 0
+      );
+    }
+
+    function pickBestVideo(videos) {
+      if (videos.length === 0) {
+        return null;
+      }
+
+      let bestVideo = null;
+      let maxScore = -1;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+
+      for (const video of videos) {
+        const rect = video.getBoundingClientRect();
+        if (rect.width <= 80 || rect.height <= 80) {
+          continue;
+        }
+
+        const visibleX = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+        const visibleY = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+        const visibleArea = visibleX * visibleY;
+        const fallbackArea = rect.width * rect.height * 0.25;
+        let score = visibleArea > 0 ? visibleArea : fallbackArea;
+
+        if (!video.paused) {
+          score *= 1.5;
+        }
+
+        if (score > maxScore) {
+          maxScore = score;
+          bestVideo = video;
+        }
+      }
+
+      return bestVideo || videos[0];
+    }
+
+    function getAnalyser(video) {
+      let item = cache.get(video);
+      if (item) return item;
+
+      const source = ctx.createMediaElementSource(video);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.4;
+
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      item = { source, analyser };
+      cache.set(video, item);
+      return item;
+    }
+
+    function isVideoProgressing(video, minDelta = 0.15) {
+      const now = Date.now();
+      const currentTime = video.currentTime || 0;
+      const item = playbackCache.get(video);
+
+      if (!item || now - item.lastCheckedAt > 5000) {
+        playbackCache.set(video, {
+          lastTime: currentTime,
+          lastCheckedAt: now,
+          stableCount: 0
+        });
+        return false;
+      }
+
+      const progressed = currentTime > item.lastTime + minDelta;
+      const stableCount = progressed ? item.stableCount + 1 : 0;
+
+      playbackCache.set(video, {
+        lastTime: currentTime,
+        lastCheckedAt: now,
+        stableCount: stableCount
+      });
+
+      return stableCount >= 1;
+    }
+
+    function hasSound(analyser, threshold = 8) {
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+
+      let sum = 0;
+      let max = 0;
+      for (const value of data) {
+        sum += value;
+        if (value > max) max = value;
+      }
+
+      const avg = sum / data.length;
+      return avg > threshold || max > threshold * 2;
+    }
+
+    async function checkOnce() {
+      await ensureRunning();
+      if (!isGdtvPage && (!ctx || ctx.state !== 'running')) {
+        return null;
+      }
+
+      const videos = getCandidateVideos();
+      if (isGdtvPage) {
+        const progressingVideos = videos.filter(video => isVideoProgressing(video));
+        return pickBestVideo(progressingVideos);
+      }
+
+      const audibleVideos = [];
+      for (const video of videos) {
+        try {
+          const { analyser } = getAnalyser(video);
+          if (hasSound(analyser)) {
+            audibleVideos.push(video);
+          }
+        } catch (error) {
+          // 某些跨域/特殊视频可能接不上，跳过继续检查其他 video
+        }
+      }
+
+      return pickBestVideo(audibleVideos);
+    }
+
+    async function tryAutoFullscreen(video) {
+      if (!video || window.__pageAutoFullscreenTriggered) return;
+
+      const now = Date.now();
+      if (now - lastFullscreenAttemptAt < 5000) return;
+      lastFullscreenAttemptAt = now;
+
+      console.log(`${triggerReason}，发送 F 键协议触发播放器全屏`);
+      const success = await requestFullscreen(video);
+      if (success) {
+        window.__pageAutoFullscreenTriggered = true;
+        console.log('当前页面已触发过一次自动全屏，后续不再重复执行');
+      }
+    }
+
+    const resumeOnGesture = () => {
+      ensureRunning();
+    };
+
+    document.addEventListener('click', resumeOnGesture, true);
+    document.addEventListener('touchstart', resumeOnGesture, true);
+    document.addEventListener('keydown', resumeOnGesture, true);
+
+    async function loop() {
+      while (true) {
+        if (window.__pageAutoFullscreenTriggered) {
+          await sleep(2000);
+          continue;
+        }
+
+        try {
+          const activeVideo = await checkOnce();
+          const current = !!activeVideo;
+
+          if (current) {
+            detectionStableCount += 1;
+
+            if (!lastState) {
+              console.log(isGdtvPage ? '检测到视频播放进度正在前进' : '有视频且声音在播放');
+            }
+
+            if (detectionStableCount >= 2) {
+              await tryAutoFullscreen(activeVideo);
+            }
+          } else {
+            detectionStableCount = 0;
+          }
+
+          lastState = current;
+        } catch (error) {}
+
+        await sleep(500);
+      }
+    }
+
+    loop();
   }
 
-  // 切换全屏状态
+  // 通过与前端 F 按钮相同的按键协议触发站点播放器全屏
   function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      const videoElements = document.querySelectorAll('video');
-      if (videoElements.length > 0) {
-        requestFullscreen(videoElements[0]);
-      } else {
-        console.log('未找到视频元素');
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-      }
-    }
+    return requestFullscreen();
   }
 
-  // 请求全屏
-  function requestFullscreen(element) {
-    try {
-      if (element.requestFullscreen) {
-        element.requestFullscreen();
-      } else if (element.webkitRequestFullScreen) {
-        element.webkitRequestFullScreen();
-      } else if (element.mozRequestFullScreen) {
-        element.mozRequestFullScreen();
-      } else if (element.msRequestFullscreen) {
-        element.msRequestFullscreen();
-      } else {
-        console.log('浏览器不支持全屏API');
-      }
-    } catch (error) {
-      console.error('全屏请求失败:', error);
-    }
+  // 不再调用网页 Fullscreen API，改为发送 F 键给服务端，
+  // 由服务端模拟真实按键，复用页面原有的播放器全屏逻辑
+  async function requestFullscreen(element) {
+    return sendKeyPressToServer('f');
   }
 
   // 播放视频
@@ -1271,10 +1417,7 @@
     }
   }
 
-  // 检测当前页面模式并回传给服务器
-  function detectAndReportMode() {
-    if (!socket || !socket.connected) return;
-
+  function getCurrentModeInfo() {
     const currentUrl = window.location.href;
     let mode = 'normal';
     let subMode = 'normal';
@@ -1289,6 +1432,15 @@
     } else if (currentUrl.includes('gdtv.cn')) {
       mode = 'guangdong';
     }
+
+    return { mode, subMode, currentUrl };
+  }
+
+  // 检测当前页面模式并回传给服务器
+  function detectAndReportMode() {
+    if (!socket || !socket.connected) return;
+
+    const { mode, subMode } = getCurrentModeInfo();
 
     console.log('当前模式:', mode, '子模式:', subMode);
     socket.emit('report_mode', { mode: mode });
@@ -1348,6 +1500,7 @@
           text: `已发送按键 ${key.toUpperCase()} 到服务端`,
           timeout: 2000
         });
+        return true;
       } else {
         console.warn('WebSocket未连接，无法发送按键操作');
         GM_notification({
@@ -1355,9 +1508,11 @@
           text: 'WebSocket未连接',
           timeout: 2000
         });
+        return false;
       }
     } catch (e) {
       console.error('发送按键操作失败:', e);
+      return false;
     }
   }
 
