@@ -183,6 +183,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const fKeyBtn = document.getElementById('f-key-btn');
   const spaceBtn = document.getElementById('space-btn');
   const backBtn = document.getElementById('back-btn');
+  const forwardBtn = document.getElementById('forward-btn');
   const cctvliveBtn = document.getElementById('switch_cctv_live');
   const cctvChannelsContainer = document.getElementById('cctv-channels-container');
   const cctvChannelsGrid = document.getElementById('cctv-channels-grid');
@@ -633,6 +634,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (fKeyBtn) fKeyBtn.disabled = !enable;
     if (spaceBtn) spaceBtn.disabled = !enable;
     if (backBtn) backBtn.disabled = !enable;
+    if (forwardBtn) forwardBtn.disabled = !enable;
     if (volumeDownBtn) volumeDownBtn.disabled = !enable;
     if (volumeUpBtn) volumeUpBtn.disabled = !enable;
     if (cctvliveBtn) cctvliveBtn.disabled = !enable;
@@ -689,6 +691,20 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleHdrBtn.innerHTML = '<i class="fas fa-adjust"></i> HDR: 关';
       toggleHdrBtn.classList.remove('active');
     }
+  }
+
+  function setPageNavVisibility(visible) {
+    const display = visible ? 'inline-flex' : 'none';
+    if (backBtn) backBtn.style.display = display;
+    if (forwardBtn) forwardBtn.style.display = display;
+  }
+
+  function getCurrentRemoteMode() {
+    if (isBilibiliMode) return 'bilibili';
+    if (isLunaTVMode) return 'lunatv';
+    if (isCCTVMode) return 'cctv';
+    if (isGuangdongMode) return 'guangdong';
+    return 'normal';
   }
 
   // 连接到服务器
@@ -811,6 +827,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // 更新UI
         const controlsCard = document.querySelector('.controls-card');
         if (controlsCard) {
+          const showPageNavButtons = isBilibiliMode || isLunaTVMode || isCCTVMode || isGuangdongMode;
           controlsCard.classList.remove('bilibili-mode-active', 'lunatv-mode-active');
           if (isBilibiliMode) {
             controlsCard.classList.add('bilibili-mode-active');
@@ -818,14 +835,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
-            if (backBtn) backBtn.style.display = 'inline-flex';
           } else if (isLunaTVMode) {
             controlsCard.classList.add('lunatv-mode-active');
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
             if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'block';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
-            if (backBtn) backBtn.style.display = 'inline-flex';
             // 进入 LunaTV 模式且尚无数据时，自动触发播放历史拉取
             if (lunatvPlayHistory.length === 0 && socket && socket.connected) {
               if (lunatvPlayHistoryGrid) lunatvPlayHistoryGrid.innerHTML = '<p class="lunatv-play-history-hint">正在获取历史记录...</p>';
@@ -838,22 +853,21 @@ document.addEventListener('DOMContentLoaded', function () {
             if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'block';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
-            if (backBtn) backBtn.style.display = 'none';
           } else if (isGuangdongMode) {
             // 广东模式：显示广东频道列表
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
             if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'block';
-            if (backBtn) backBtn.style.display = 'none';
           } else {
             // 普通模式
             if (bilibiliSearchContainer) bilibiliSearchContainer.style.display = 'none';
             if (lunatvSearchContainer) lunatvSearchContainer.style.display = 'none';
             if (cctvChannelsContainer) cctvChannelsContainer.style.display = 'none';
             if (guangdongChannelsContainer) guangdongChannelsContainer.style.display = 'none';
-            if (backBtn) backBtn.style.display = 'none';
           }
+
+          setPageNavVisibility(showPageNavButtons);
         }
 
         // 更新标签显示
@@ -1303,19 +1317,32 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 首页按钮（根据模式决定跳转目标）
+  // 页面后退按钮
   if (backBtn) {
     backBtn.addEventListener('click', function () {
       if (socket && socket.connected) {
-        if (isLunaTVMode) {
-          socket.emit('lunatv_home');
-          statusText.textContent = '跳转LunaTV首页';
-        } else {
-          socket.emit('bilibili_home');
-          statusText.textContent = '跳转B站首页';
-        }
+        socket.emit('page_history_navigate', {
+          direction: 'back',
+          mode: getCurrentRemoteMode()
+        });
+        statusText.textContent = '页面后退';
       } else {
-        statusText.textContent = 'WebSocket未连接，无法跳转';
+        statusText.textContent = 'WebSocket未连接，无法后退';
+      }
+    });
+  }
+
+  // 页面前进按钮
+  if (forwardBtn) {
+    forwardBtn.addEventListener('click', function () {
+      if (socket && socket.connected) {
+        socket.emit('page_history_navigate', {
+          direction: 'forward',
+          mode: getCurrentRemoteMode()
+        });
+        statusText.textContent = '页面前进';
+      } else {
+        statusText.textContent = 'WebSocket未连接，无法前进';
       }
     });
   }

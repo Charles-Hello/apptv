@@ -1049,6 +1049,16 @@
         handleOpenUrl(data.url);
       });
 
+      socket.on('page_history_command', function (data) {
+        if (!data || !['back', 'forward'].includes(data.direction)) return;
+        const cmdId = 'phnav_' + data.timestamp + '_' + data.direction;
+        const lastCmd = localStorage.getItem('__page_history_cmd__');
+        if (lastCmd === cmdId) return;
+        localStorage.setItem('__page_history_cmd__', cmdId);
+        console.log('收到页面历史导航命令:', data.mode, data.direction);
+        handlePageHistoryNavigate(data.direction, data.mode);
+      });
+
       // 处理视频控制命令
       socket.on('video_control_command', function (data) {
         console.log('收到视频控制命令:', data);
@@ -1417,6 +1427,30 @@
     }
   }
 
+  function handlePageHistoryNavigate(direction, targetMode) {
+    if (!isTargetWebsite) {
+      console.log('当前页面不在受控站点范围内，忽略历史导航:', window.location.href);
+      return;
+    }
+
+    const { mode: currentMode } = getCurrentModeInfo();
+    if (targetMode && targetMode !== 'normal' && currentMode !== targetMode) {
+      console.log('页面模式不匹配，忽略历史导航:', { currentMode, targetMode, url: window.location.href });
+      return;
+    }
+
+    if (direction === 'back') {
+      console.log('执行页面后退');
+      window.history.back();
+      return;
+    }
+
+    if (direction === 'forward') {
+      console.log('执行页面前进');
+      window.history.forward();
+    }
+  }
+
   function getCurrentModeInfo() {
     const currentUrl = window.location.href;
     let mode = 'normal';
@@ -1446,6 +1480,14 @@
     socket.emit('report_mode', { mode: mode });
     socket.emit('bilibili_sub_mode', { sub_mode: subMode });
   }
+
+  window.addEventListener('popstate', function () {
+    setTimeout(detectAndReportMode, 100);
+  });
+
+  window.addEventListener('hashchange', function () {
+    setTimeout(detectAndReportMode, 100);
+  });
 
   // 通过WebSocket或HTTP发送按键到ESP32
   function sendKeyToESP32(keyCode) {

@@ -2243,8 +2243,9 @@ footer {
     display: inline !important;
 }
 
-/* B站模式下显示首页按钮 */
-.bilibili-mode-active #back-btn {
+/* B站模式下显示页面导航按钮 */
+.bilibili-mode-active #back-btn,
+.bilibili-mode-active #forward-btn {
     display: inline-flex !important;
 }
 
@@ -2275,13 +2276,15 @@ input:checked + .lunatv-toggle-slider {
     box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.4);
 }
 
-/* LunaTV模式下显示首页按钮，并使用绿色 */
-.lunatv-mode-active #back-btn {
+/* LunaTV模式下显示页面导航按钮，并使用绿色 */
+.lunatv-mode-active #back-btn,
+.lunatv-mode-active #forward-btn {
     display: inline-flex !important;
     box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.4);
 }
 
-.lunatv-mode-active #back-btn:hover:not(:disabled) {
+.lunatv-mode-active #back-btn:hover:not(:disabled),
+.lunatv-mode-active #forward-btn:hover:not(:disabled) {
     background: rgba(74, 222, 128, 0.2) !important;
     color: #4ade80 !important;
 }

@@ -716,6 +716,23 @@ def handle_bilibili_history_navigate(data):
     })
     emit('bilibili_history_navigate_response', {"success": True})
 
+@socketio.on('page_history_navigate')
+def handle_page_history_navigate(data):
+    """处理中转浏览器页面前进/后退请求"""
+    direction = data.get('direction')
+    mode = data.get('mode', 'normal')
+    if direction not in ['back', 'forward']:
+        emit('error', {"error": "无效方向"})
+        return
+
+    print(f"收到页面历史导航请求: mode={mode}, direction={direction}")
+    socketio.emit('page_history_command', {
+        "mode": mode,
+        "direction": direction,
+        "timestamp": int(time.time() * 1000)
+    })
+    emit('page_history_navigate_response', {"success": True, "mode": mode, "direction": direction})
+
 @socketio.on('bilibili_sub_mode')
 def handle_bilibili_sub_mode(data):
     """中继B站子模式状态到前端"""
