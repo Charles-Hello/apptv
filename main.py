@@ -32,6 +32,10 @@ screen_wake_status = {
 
 # 当前模式状态管理（由油猴脚本回传）
 current_mode = "normal"  # normal / bilibili / lunatv / cctv / guangdong
+LUNATV_DOMAINS = ["movie.tnanko.top", "tv.dogegg.online"]
+PRIMARY_LUNATV_ORIGIN = "https://movie.tnanko.top"
+PRIMARY_LUNATV_ROOT_URL = f"{PRIMARY_LUNATV_ORIGIN}/"
+PRIMARY_LUNATV_HOME_URL = f"{PRIMARY_LUNATV_ORIGIN}/douban?type=movie"
 
 # 记录今天是否已经有用户触发了屏幕唤醒
 first_user_wake_triggered = False
@@ -207,10 +211,14 @@ def focus_chrome_target(mode=None, url=None):
         "cctv": "tv.cctv.com",
         "guangdong": "gdtv.cn",
         "bilibili": "bilibili.com",
-        "lunatv": "tv.dogegg.online"
+        "lunatv": LUNATV_DOMAINS
     }
     if mode in mode_patterns:
-        patterns.append(mode_patterns[mode])
+        mode_value = mode_patterns[mode]
+        if isinstance(mode_value, (list, tuple, set)):
+            patterns.extend(mode_value)
+        else:
+            patterns.append(mode_value)
 
     seen = set()
     for pattern in patterns:
@@ -221,6 +229,13 @@ def focus_chrome_target(mode=None, url=None):
             return True
 
     return focus_app("Google Chrome")
+
+def focus_chrome_target_for_navigation(mode=None, url=None, settle_delay=0.35):
+    """在切换站点前先聚焦对应的 Chrome 标签页，并等待窗口稳定。"""
+    focused = focus_chrome_target(mode=mode, url=url)
+    if focused and settle_delay > 0:
+        time.sleep(settle_delay)
+    return focused
 
 # 模拟键盘上下键
 def press_key(key):
@@ -582,20 +597,20 @@ def handle_switch_desktop(data):
     })
 
 @socketio.on('switch_guangdong_live')
-def handle_switch_desktop():
+def handle_switch_guangdong_live():
     """处理桌面切换请求"""
     press_key("space")
-    focus_chrome_window_by_url("gdtv.cn")
+    focus_chrome_target_for_navigation(mode="guangdong", url="https://www.gdtv.cn/tvChannelDetail/45")
     socketio.emit('open_url_command', {
                   "url": 'https://www.gdtv.cn/tvChannelDetail/45',
                   "timestamp": int(__import__('time').time())
               })
 
 @socketio.on('switch_cctv_live')
-def handle_switch_desktop():
+def handle_switch_cctv_live():
     """处理桌面切换请求"""
     press_key("space")
-    focus_chrome_target(mode="cctv", url="https://tv.cctv.com/live/cctv13/")
+    focus_chrome_target_for_navigation(mode="cctv", url="https://tv.cctv.com/live/cctv13/")
     socketio.emit('open_url_command', {
                   "url": 'https://tv.cctv.com/live/cctv13/',
                   "timestamp": int(__import__('time').time())
@@ -610,6 +625,7 @@ def handle_cctv_channel(data):
         emit('error', {"error": "缺少频道URL"})
         return
     print(f"收到央视频道切换请求: {name} -> {url}")
+    focus_chrome_target_for_navigation(mode="cctv", url=url)
     socketio.emit('cctv_channel_command', {
         "url": url,
         "name": name,
@@ -626,6 +642,7 @@ def handle_guangdong_channel(data):
         emit('error', {"error": "缺少频道URL"})
         return
     print(f"收到广东频道切换请求: {name} -> {url}")
+    focus_chrome_target_for_navigation(mode="guangdong", url=url)
     socketio.emit('guangdong_channel_command', {
         "url": url,
         "name": name,
@@ -637,7 +654,7 @@ def handle_guangdong_channel(data):
 def handle_switch_bilibili():
     """处理切换到哔哩哔哩的请求"""
     press_key("space")
-    focus_chrome_window_by_url("bilibili.com")
+    focus_chrome_target_for_navigation(mode="bilibili", url="https://www.bilibili.com/")
     socketio.emit('open_url_command', {
                   "url": 'https://www.bilibili.com/',
                   "timestamp": int(__import__('time').time())
@@ -653,6 +670,7 @@ def handle_bilibili_search(data):
         return
 
     print(f"收到B站搜索请求，关键词: {keyword}")
+    focus_chrome_target_for_navigation(mode="bilibili", url="https://www.bilibili.com/")
 
     # 广播搜索命令给所有客户端（油猴插件）
     socketio.emit('bilibili_search_command', {
@@ -670,6 +688,7 @@ def handle_bilibili_search(data):
 def handle_bilibili_home():
     """处理B站首页请求"""
     print("收到B站首页请求")
+    focus_chrome_target_for_navigation(mode="bilibili", url="https://www.bilibili.com/")
 
     # 广播首页命令给所有客户端（油猴插件）
     socketio.emit('bilibili_home_command', {
@@ -687,6 +706,7 @@ def handle_bilibili_home():
 def handle_bilibili_history():
     """处理B站观看历史请求"""
     print("收到B站观看历史请求")
+    focus_chrome_target_for_navigation(mode="bilibili", url="https://www.bilibili.com/?page=History")
     socketio.emit('bilibili_history_command', {
         "url": "https://www.bilibili.com/?page=History",
         "timestamp": int(time.time() * 1000)
@@ -697,6 +717,7 @@ def handle_bilibili_history():
 def handle_bilibili_favorites():
     """处理B站我的收藏请求"""
     print("收到B站我的收藏请求")
+    focus_chrome_target_for_navigation(mode="bilibili", url="https://www.bilibili.com/?page=Favorites")
     socketio.emit('bilibili_favorites_command', {
         "timestamp": int(time.time() * 1000)
     })
@@ -767,8 +788,9 @@ def handle_lunatv_click():
 def handle_lunatv_home():
     """处理LunaTV首页请求"""
     print("收到LunaTV首页请求")
+    focus_chrome_target_for_navigation(mode="lunatv", url=PRIMARY_LUNATV_HOME_URL)
     socketio.emit('lunatv_home_command', {
-        "url": "https://tv.dogegg.online/douban?type=movie",
+        "url": PRIMARY_LUNATV_HOME_URL,
         "timestamp": int(time.time() * 1000)
     })
     emit('lunatv_home_response', {"success": True})
@@ -783,6 +805,7 @@ def handle_lunatv_search(data):
         return
 
     print(f"收到LunaTV搜索请求，关键词: {keyword}")
+    focus_chrome_target_for_navigation(mode="lunatv", url=PRIMARY_LUNATV_ROOT_URL)
 
     # 广播搜索命令给所有客户端（油猴插件）
     socketio.emit('lunatv_search_command', {
@@ -830,6 +853,7 @@ def handle_lunatv_play_record(data):
     """处理播放指定历史记录的请求"""
     record = data.get('record', {})
     print(f"收到LunaTV播放记录请求: {record.get('title', '未知')}")
+    focus_chrome_target_for_navigation(mode="lunatv", url=PRIMARY_LUNATV_ROOT_URL)
     socketio.emit('lunatv_play_record_command', {
         "record": record,
         "timestamp": int(time.time() * 1000)

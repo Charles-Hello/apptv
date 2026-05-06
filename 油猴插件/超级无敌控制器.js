@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         超级无敌控制器
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.2.1
 // @description  通过WebSocket连接到本地服务器，接收并打开视频链接，自动全屏视频，支持远程视频控制，支持央视直播频道切换
 // @author       You
 // @match        *://*/*
@@ -15,6 +15,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      cdn.socket.io
 // @connect      192.168.1.115
+// @connect      movie.tnanko.top
 // @connect      tv.dogegg.online
 // @require      https://cdn.socket.io/4.6.0/socket.io.min.js
 // @require      https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js
@@ -41,26 +42,235 @@
   let wsReconnectTimer = null;
   let wsHeartbeatTimer = null;
   let wsHeartbeatInterval = 30000; // 心跳检测间隔30秒
+  const TNANKO_LOGIN_USERNAME = 'admin';
+  const TNANKO_LOGIN_PASSWORD = 'aa123456';
+
+  const LUNATV_HOSTS = ['movie.tnanko.top', 'tv.dogegg.online'];
+  const DEFAULT_LUNATV_ORIGIN = 'https://movie.tnanko.top';
+
+  function isLunaTVHost(hostname = window.location.hostname) {
+    return LUNATV_HOSTS.includes((hostname || '').toLowerCase());
+  }
+
+  function isLunaTVUrl(url = window.location.href) {
+    try {
+      return isLunaTVHost(new URL(url, window.location.origin).hostname);
+    } catch (error) {
+      return LUNATV_HOSTS.some(host => String(url || '').includes(host));
+    }
+  }
+
+  function isCurrentLunaTVPage() {
+    return isLunaTVHost(window.location.hostname);
+  }
+
+  function isCurrentLunaTVPlayPage() {
+    return isCurrentLunaTVPage() && window.location.pathname.startsWith('/play');
+  }
+
+  function getCurrentLunaTVOrigin() {
+    return isCurrentLunaTVPage() ? window.location.origin : DEFAULT_LUNATV_ORIGIN;
+  }
+
+  function isTnankoLoginPage() {
+    return window.location.hostname === 'movie.tnanko.top' &&
+      window.location.pathname === '/login';
+  }
+
+  function canAttemptTnankoAutoLogin() {
+    if (window.__tnankoAutoLoginAttempted) {
+      console.log('LunaTV登录页: 当前页面已尝试过自动登录，跳过重复提交');
+      return false;
+    }
+    window.__tnankoAutoLoginAttempted = true;
+    return true;
+  }
+
+  function setNativeInputValue(input, value) {
+    if (!input) return;
+
+    const prototype = Object.getPrototypeOf(input);
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value') ||
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+    if (descriptor?.set) {
+      descriptor.set.call(input, value);
+    } else {
+      input.value = value;
+    }
+
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function clickTnankoLoginSubmitButton() {
+    const submitButton = document.querySelector('button[type="submit"]');
+    if (!submitButton) {
+      console.log('LunaTV登录页: 未找到 button[type="submit"]');
+      return false;
+    }
+
+    console.log('LunaTV登录页: 执行原生 submit 按钮点击');
+    submitButton.click();
+    return true;
+  }
+
+  function emitMacKeyPressWithoutToast(key) {
+    if (!(socket && socket.connected)) {
+      return false;
+    }
+
+    console.log('LunaTV登录页: 通过WebSocket发送按键到macOS:', key);
+    socket.emit('key_press', { direction: key });
+    return true;
+  }
+
+  function runTnankoLoginPreflight(onComplete, waitAttempt = 0) {
+    if (!isTnankoLoginPage()) return;
+
+    if (window.__tnankoLoginFPreflightDone) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    if (!(socket && socket.connected)) {
+      if (waitAttempt < 20) {
+        setTimeout(() => runTnankoLoginPreflight(onComplete, waitAttempt + 1), 150);
+      } else {
+        console.log('LunaTV登录页: WebSocket未就绪，跳过登录前F键预热');
+        if (typeof onComplete === 'function') onComplete();
+      }
+      return;
+    }
+
+    window.__tnankoLoginFPreflightDone = true;
+    const totalPresses = 3;
+    let sentCount = 0;
+
+    console.log(`LunaTV登录页: 登录前先发送 ${totalPresses} 次 F 键`);
+
+    const sendNext = () => {
+      if (!isTnankoLoginPage()) return;
+
+      emitMacKeyPressWithoutToast('f');
+      sentCount += 1;
+
+      if (sentCount < totalPresses) {
+        setTimeout(sendNext, 160);
+      } else if (typeof onComplete === 'function') {
+        setTimeout(onComplete, 220);
+      }
+    };
+
+    sendNext();
+  }
+
+  function submitTnankoLoginForm(form, submitButton, attempt = 0) {
+    if (!isTnankoLoginPage() || !form) return;
+
+    if (attempt > 20) {
+      console.log('LunaTV登录页: 自动登录点击重试结束');
+      return;
+    }
+
+    if (!window.__tnankoLoginFPreflightDone) {
+      runTnankoLoginPreflight(() => submitTnankoLoginForm(form, submitButton, attempt));
+      return;
+    }
+
+    const latestSubmitButton = document.querySelector('button[type="submit"]') || submitButton;
+
+    if (latestSubmitButton?.disabled) {
+      setTimeout(() => submitTnankoLoginForm(form, latestSubmitButton, attempt + 1), 150);
+      return;
+    }
+
+    console.log(`LunaTV登录页: 自动点击立即登录按钮，第${attempt + 1}次尝试`);
+    if (clickTnankoLoginSubmitButton()) {
+      if (window.location.pathname === '/login') {
+        setTimeout(() => submitTnankoLoginForm(form, latestSubmitButton, attempt + 1), 300);
+      }
+      return;
+    }
+
+    if (typeof form.requestSubmit === 'function') {
+      form.requestSubmit(latestSubmitButton || undefined);
+    } else {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+
+    if (window.location.pathname === '/login') {
+      setTimeout(() => submitTnankoLoginForm(form, latestSubmitButton, attempt + 1), 300);
+    }
+  }
+
+  function tryTnankoAutoLogin() {
+    if (!isTnankoLoginPage()) {
+      return false;
+    }
+
+    const usernameInput = document.querySelector('#username');
+    const passwordInput = document.querySelector('#password');
+    const form = usernameInput?.form || passwordInput?.form || document.querySelector('form');
+    const submitButton = form?.querySelector('button[type="submit"]');
+
+    if (!usernameInput || !passwordInput || !form) {
+      return false;
+    }
+
+    setNativeInputValue(usernameInput, TNANKO_LOGIN_USERNAME);
+    setNativeInputValue(passwordInput, TNANKO_LOGIN_PASSWORD);
+
+    if (!canAttemptTnankoAutoLogin()) {
+      return true;
+    }
+
+    console.log('LunaTV登录页: 已自动填充账号密码');
+    setTimeout(() => submitTnankoLoginForm(form, submitButton), 180);
+    return true;
+  }
+
+  function setupTnankoAutoLogin() {
+    if (!isTnankoLoginPage()) return;
+
+    if (tryTnankoAutoLogin()) return;
+
+    const observer = new MutationObserver(() => {
+      if (tryTnankoAutoLogin()) {
+        observer.disconnect();
+      }
+    });
+
+    const root = document.documentElement || document.body;
+    if (root) {
+      observer.observe(root, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 20000);
+    }
+  }
 
   // 检查是否在目标网站上
-  const isTargetWebsite = /movie\.tnanko\.top|www\.gdtv\.cn|tv\.cctv\.com|bilibili\.com|tv\.dogegg\.online/.test(window.location.href);
+  const isTargetWebsite = isCurrentLunaTVPage() || /www\.gdtv\.cn|tv\.cctv\.com|bilibili\.com/.test(window.location.href);
 
   console.log('=== 油猴脚本启动 ===');
   console.log('当前URL:', window.location.href);
   console.log('是否在目标网站:', isTargetWebsite);
   console.log('==================');
 
-  fetch('https://tv.tnanko.top/send-esp32-key?key_code=F')
-    .then(response => {
-      if (response.ok) {
-        console.log('已向ESP32发送F键指令');
-      } else {
-        console.warn('发送F键指令失败', response.status);
-      }
-    })
-    .catch(err => {
-      console.error('发送F键指令时发生错误', err);
-    });
+  setupTnankoAutoLogin();
+
+  if (!isTnankoLoginPage()) {
+    fetch('https://tv.tnanko.top/send-esp32-key?key_code=F')
+      .then(response => {
+        if (response.ok) {
+          console.log('已向ESP32发送F键指令');
+        } else {
+          console.warn('发送F键指令失败', response.status);
+        }
+      })
+      .catch(err => {
+        console.error('发送F键指令时发生错误', err);
+      });
+  }
 
   // 创建简化的控制面板（只显示二维码）
   createControlPanel();
@@ -392,6 +602,11 @@
   let lunatvFocusedCol = 0;  // 当前聚焦卡片的绝对列（0-based）
   let lunatvScrollTimer = null; // 滚动防抖 timer
 
+  function hasLunaTVSemanticGrid() {
+    return !!document.querySelector('[role="grid"][aria-colcount]') &&
+      !!document.querySelector('[role="gridcell"][aria-colindex]');
+  }
+
   function getLunaTVColumnCount() {
     const grid = document.querySelector('[role="grid"]');
     if (grid) {
@@ -409,15 +624,162 @@
     return rowDiv.querySelector(`[role="gridcell"][aria-colindex="${col + 1}"]`) || null;
   }
 
-  // 获取当前标记为聚焦的 cell（通过 data 属性，即使虚拟列表重建也能找到）
+  function getLunaTVFocusVisualTarget(target) {
+    if (!target) return null;
+    if (target.classList?.contains('video-card-visibility')) return target;
+    return target.querySelector('.video-card-visibility') || target;
+  }
+
+  function getFirstVisibleLunaTVGridCell() {
+    const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
+    for (const cell of cells) {
+      const rect = cell.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight) {
+        return cell;
+      }
+    }
+    return cells[0] || null;
+  }
+
+  function getLunaTVFlowCards() {
+    const rawCards = Array.from(document.querySelectorAll('[data-button="true"]'))
+      .map(button =>
+        button.closest('.video-card-visibility') ||
+        button.closest('div[class*="@container"][class*="group"][class*="cursor-pointer"]')
+      )
+      .filter(Boolean);
+
+    const uniqueCards = Array.from(new Set(rawCards));
+    return uniqueCards.filter(card => {
+      if (!card.querySelector('img')) return false;
+      const rect = card.getBoundingClientRect();
+      return rect.width > 80 && rect.height > 120;
+    });
+  }
+
+  function getLunaTVFlowRows() {
+    const items = getLunaTVFlowCards()
+      .map(card => ({ card, rect: card.getBoundingClientRect() }))
+      .sort((a, b) => {
+        const topDiff = a.rect.top - b.rect.top;
+        if (Math.abs(topDiff) > 24) return topDiff;
+        return a.rect.left - b.rect.left;
+      });
+
+    const rows = [];
+    for (const item of items) {
+      const lastRow = rows[rows.length - 1];
+      const rowThreshold = Math.max(20, Math.min(60, item.rect.height * 0.2));
+      if (!lastRow || Math.abs(item.rect.top - lastRow.top) > rowThreshold) {
+        rows.push({ top: item.rect.top, items: [item] });
+      } else {
+        lastRow.items.push(item);
+      }
+    }
+
+    rows.forEach(row => {
+      row.items.sort((a, b) => a.rect.left - b.rect.left);
+    });
+
+    return rows;
+  }
+
+  function findLunaTVFlowFocus(rows) {
+    const focused = getLunaTVFocusedCell();
+    if (focused) {
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        const colIndex = rows[rowIndex].items.findIndex(item => item.card === focused);
+        if (colIndex >= 0) {
+          return {
+            rowIndex,
+            colIndex,
+            card: rows[rowIndex].items[colIndex].card
+          };
+        }
+      }
+    }
+
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      for (let colIndex = 0; colIndex < rows[rowIndex].items.length; colIndex++) {
+        const rect = rows[rowIndex].items[colIndex].rect;
+        if (rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight) {
+          return {
+            rowIndex,
+            colIndex,
+            card: rows[rowIndex].items[colIndex].card
+          };
+        }
+      }
+    }
+
+    if (rows[0]?.items[0]) {
+      return { rowIndex: 0, colIndex: 0, card: rows[0].items[0].card };
+    }
+
+    return null;
+  }
+
+  function navigateLunaTVFlowLayout(direction) {
+    const rows = getLunaTVFlowRows();
+    if (rows.length === 0) {
+      console.log('LunaTV: 未找到可导航的卡片布局');
+      return false;
+    }
+
+    const current = findLunaTVFlowFocus(rows);
+    if (!current) {
+      console.log('LunaTV: 卡片布局存在，但没有可聚焦目标');
+      return false;
+    }
+
+    if (!getLunaTVFocusedCell()) {
+      applyLunaTVFocus(current.card, current.rowIndex, current.colIndex);
+      console.log('LunaTV: 流式布局初始化，聚焦视口内第一个卡片');
+      return true;
+    }
+
+    let nextRow = current.rowIndex;
+    let nextCol = current.colIndex;
+
+    if (direction === 'up') {
+      nextRow = Math.max(0, current.rowIndex - 1);
+      nextCol = Math.min(current.colIndex, rows[nextRow].items.length - 1);
+    } else if (direction === 'down') {
+      nextRow = Math.min(rows.length - 1, current.rowIndex + 1);
+      nextCol = Math.min(current.colIndex, rows[nextRow].items.length - 1);
+    } else if (direction === 'left') {
+      if (current.colIndex > 0) {
+        nextCol = current.colIndex - 1;
+      } else if (current.rowIndex > 0) {
+        nextRow = current.rowIndex - 1;
+        nextCol = rows[nextRow].items.length - 1;
+      }
+    } else if (direction === 'right') {
+      if (current.colIndex < rows[current.rowIndex].items.length - 1) {
+        nextCol = current.colIndex + 1;
+      } else if (current.rowIndex < rows.length - 1) {
+        nextRow = current.rowIndex + 1;
+        nextCol = 0;
+      }
+    }
+
+    const target = rows[nextRow]?.items[nextCol]?.card;
+    if (!target) return false;
+
+    applyLunaTVFocus(target, nextRow, nextCol);
+    console.log(`LunaTV: 流式布局聚焦 row=${nextRow}, col=${nextCol}`);
+    return true;
+  }
+
+  // 获取当前标记为聚焦的卡片（通过 data 属性，即使切换布局也能找到）
   function getLunaTVFocusedCell() {
-    return document.querySelector('[role="gridcell"][data-lunatv-focused="true"]');
+    return document.querySelector('[data-lunatv-focused="true"]');
   }
 
   function clearLunaTVFocus() {
-    document.querySelectorAll('[role="gridcell"]').forEach(cell => {
+    document.querySelectorAll('[data-lunatv-focused="true"]').forEach(cell => {
       cell.removeAttribute('data-lunatv-focused');
-      const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
+      const card = getLunaTVFocusVisualTarget(cell);
       if (card) {
         card.style.outline = '';
         card.style.boxShadow = '';
@@ -433,7 +795,7 @@
     lunatvFocusedRow = row;
     lunatvFocusedCol = col;
 
-    const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
+    const card = getLunaTVFocusVisualTarget(cell);
     if (card) {
       card.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
       card.style.boxShadow = '0 0 0 5px rgba(74, 222, 128, 0.25)';
@@ -444,22 +806,22 @@
   }
 
   function lunatvNavigate(direction) {
+    if (!hasLunaTVSemanticGrid()) {
+      navigateLunaTVFlowLayout(direction);
+      return;
+    }
+
     const cols = getLunaTVColumnCount();
 
     // 初始化：选视口内第一个可见的 gridcell
     if (lunatvFocusedRow < 0) {
-      const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
-      for (const cell of cells) {
-        const rect = cell.getBoundingClientRect();
-        if (rect.top >= 0 && rect.bottom <= window.innerHeight && rect.width > 0) {
-          // aria-rowindex 在父级 role="row" 上，aria-colindex 在 gridcell 上
-          const rowDiv = cell.closest('[role="row"]');
-          const r = rowDiv ? parseInt(rowDiv.getAttribute('aria-rowindex') || '1') - 1 : 0;
-          const c = parseInt(cell.getAttribute('aria-colindex') || '1') - 1;
-          applyLunaTVFocus(cell, r, c);
-          console.log('LunaTV: 初始化，聚焦视口内第一个卡片');
-          return;
-        }
+      const cell = getFirstVisibleLunaTVGridCell();
+      if (cell) {
+        const rowDiv = cell.closest('[role="row"]');
+        const r = rowDiv ? parseInt(rowDiv.getAttribute('aria-rowindex') || '1') - 1 : 0;
+        const c = parseInt(cell.getAttribute('aria-colindex') || '1') - 1;
+        applyLunaTVFocus(cell, r, c);
+        console.log('LunaTV: 初始化，聚焦视口内第一个卡片');
       }
       return;
     }
@@ -514,16 +876,12 @@
           applyLunaTVFocus(targetCell, lunatvFocusedRow, lunatvFocusedCol);
         } else {
           // 若仍未渲染，选视口内第一个可见卡片作为降级
-          const cells = Array.from(document.querySelectorAll('[role="gridcell"]'));
-          for (const cell of cells) {
-            const rect = cell.getBoundingClientRect();
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight && rect.width > 0) {
-              const rowDiv = cell.closest('[role="row"]');
-              const r = rowDiv ? parseInt(rowDiv.getAttribute('aria-rowindex') || '1') - 1 : 0;
-              const c = parseInt(cell.getAttribute('aria-colindex') || '1') - 1;
-              applyLunaTVFocus(cell, r, c);
-              break;
-            }
+          const cell = getFirstVisibleLunaTVGridCell();
+          if (cell) {
+            const rowDiv = cell.closest('[role="row"]');
+            const r = rowDiv ? parseInt(rowDiv.getAttribute('aria-rowindex') || '1') - 1 : 0;
+            const c = parseInt(cell.getAttribute('aria-colindex') || '1') - 1;
+            applyLunaTVFocus(cell, r, c);
           }
         }
       }, 450);
@@ -545,7 +903,7 @@
       return;
     }
 
-    const card = cell.querySelector('.video-card-visibility') || cell.firstElementChild;
+    const card = getLunaTVFocusVisualTarget(cell);
     if (card) {
       card.click();
       console.log(`LunaTV: 降级点击卡片 row=${lunatvFocusedRow}, col=${lunatvFocusedCol}`);
@@ -561,66 +919,198 @@
     const span = Array.from(document.querySelectorAll('span')).find(
       el => el.textContent?.trim() === tabText
     );
-    return span ? span.closest('.cursor-pointer') : null;
+    if (!span) return null;
+    return span.closest('.cursor-pointer') || span.parentElement;
+  }
+
+  function getClassTokens(element) {
+    return (element?.className || '').toString().split(/\s+/).filter(Boolean);
+  }
+
+  function hasActiveThemeToken(element) {
+    return getClassTokens(element).some(token =>
+      /^(?:text|dark:text)-(?:primary|green|emerald|teal|blue)-\d+$/.test(token) ||
+      /^(?:bg|dark:bg)-(?:primary|green|emerald|teal|blue)-\d+$/.test(token)
+    );
+  }
+
+  function dispatchLunaTVClick(element) {
+    if (!element) return;
+    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    element.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
+    element.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
   }
 
   function getActiveTabName() {
     const episodeTab = findPlayTab('选集');
     if (!episodeTab) return '换源';
-    // Active tab has 'text-primary-600' as a standalone token
-    // Inactive tab only has 'hover:text-primary-600' (different token) + 'text-gray-700'
-    const classes = episodeTab.className.split(/\s+/);
-    if (classes.includes('text-primary-600')) return '选集';
+    if (hasActiveThemeToken(episodeTab)) return '选集';
     return '换源';
   }
 
   function switchToPlayTab(tabText) {
     const tab = findPlayTab(tabText);
     if (!tab) { console.log('LunaTV播放页: 未找到Tab:', tabText); return false; }
-    tab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-    tab.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
-    tab.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
+    dispatchLunaTVClick(tab);
     cachedLunaTVSources = null; lunatvPlaySourceIndex = -1;
+    cachedLunaTVEpisodeGroups = null; lunatvEpisodeGroupIndex = -1;
     cachedLunaTVEpisodes = null; lunatvEpisodeIndex = -1;
+    lunatvEpisodeFocusMode = 'episode';
     console.log('LunaTV播放页: 已切换到Tab:', tabText);
     return true;
   }
 
   // === 选集功能 ===
+  let lunatvEpisodeFocusMode = 'episode';
+  let lunatvEpisodeGroupIndex = -1;
+  let cachedLunaTVEpisodeGroups = null;
   let lunatvEpisodeIndex = -1;
   let cachedLunaTVEpisodes = null;
+
+  function normalizeLunaTVButtonText(text) {
+    return (text || '').replace(/\s+/g, '').trim();
+  }
+
+  function isLunaTVEpisodeGroupText(text) {
+    return /^\d{1,4}-\d{1,4}$/.test(normalizeLunaTVButtonText(text));
+  }
+
+  function isLunaTVEpisodeText(text) {
+    return /^\d{1,4}$/.test(normalizeLunaTVButtonText(text));
+  }
+
+  function getCurrentLunaTVEpisodeNumber() {
+    const title = document.querySelector('h1')?.textContent || '';
+    const match = title.match(/第0*(\d+)集/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  function getLunaTVEpisodesContainer() {
+    const episodeLabel = Array.from(document.querySelectorAll('span')).find(
+      el => el.textContent?.trim() === '选集'
+    );
+    if (!episodeLabel) {
+      console.log('LunaTV播放页: 未找到"选集"标签');
+      return null;
+    }
+
+    let anc = episodeLabel.parentElement;
+    while (anc && anc.tagName !== 'BODY') {
+      const found = anc.querySelector('[class*="content-start"]');
+      if (found) return found;
+      anc = anc.parentElement;
+    }
+
+    console.log('LunaTV播放页: 未找到集数列表容器');
+    return null;
+  }
+
+  function getLunaTVEpisodeGroups() {
+    if (cachedLunaTVEpisodeGroups && cachedLunaTVEpisodeGroups.length > 0 &&
+        cachedLunaTVEpisodeGroups.every(el => document.body.contains(el))) {
+      return cachedLunaTVEpisodeGroups;
+    }
+    cachedLunaTVEpisodeGroups = null;
+    lunatvEpisodeGroupIndex = -1;
+
+    const container = getLunaTVEpisodesContainer();
+    if (!container) return [];
+
+    let anc = container.parentElement;
+    while (anc && anc.tagName !== 'BODY') {
+      const btns = Array.from(anc.querySelectorAll('button')).filter(btn =>
+        isLunaTVEpisodeGroupText(btn.textContent)
+      );
+      if (btns.length > 0) {
+        cachedLunaTVEpisodeGroups = btns;
+        console.log('LunaTV播放页: 找到', btns.length, '个大选集分组按钮');
+        return btns;
+      }
+      anc = anc.parentElement;
+    }
+
+    return [];
+  }
 
   function getLunaTVEpisodes() {
     if (cachedLunaTVEpisodes && cachedLunaTVEpisodes.length > 0 &&
         cachedLunaTVEpisodes.every(el => document.body.contains(el))) {
       return cachedLunaTVEpisodes;
     }
-    cachedLunaTVEpisodes = null; lunatvEpisodeIndex = -1;
+    cachedLunaTVEpisodes = null;
+    lunatvEpisodeIndex = -1;
 
-    const episodeLabel = Array.from(document.querySelectorAll('span')).find(
-      el => el.textContent?.trim() === '选集'
-    );
-    if (!episodeLabel) { console.log('LunaTV播放页: 未找到"选集"标签'); return []; }
-
-    let container = null;
-    let anc = episodeLabel.parentElement;
-    while (anc && anc.tagName !== 'BODY') {
-      const found = anc.querySelector('[class*="content-start"]');
-      if (found) { container = found; break; }
-      anc = anc.parentElement;
-    }
-    if (!container) { console.log('LunaTV播放页: 未找到集数列表容器'); return []; }
+    const container = getLunaTVEpisodesContainer();
+    if (!container) return [];
 
     const btns = Array.from(container.querySelectorAll('button'));
-    console.log('LunaTV播放页: 找到', btns.length, '个集数按钮');
-    cachedLunaTVEpisodes = btns;
-    return btns;
+    const episodes = btns.filter(btn => isLunaTVEpisodeText(btn.textContent));
+    console.log('LunaTV播放页: 找到', episodes.length, '个子选集按钮');
+    cachedLunaTVEpisodes = episodes;
+    return episodes;
+  }
+
+  function getCurrentLunaTVEpisodeGroupIndex(groups = getLunaTVEpisodeGroups()) {
+    const currentEpisodeNumber = getCurrentLunaTVEpisodeNumber();
+    if (currentEpisodeNumber != null) {
+      const matchedIndex = groups.findIndex(btn => {
+        const [start, end] = normalizeLunaTVButtonText(btn.textContent)
+          .split('-')
+          .map(num => parseInt(num, 10));
+        return !Number.isNaN(start) && !Number.isNaN(end) &&
+          currentEpisodeNumber >= start && currentEpisodeNumber <= end;
+      });
+      if (matchedIndex >= 0) return matchedIndex;
+    }
+
+    return groups.findIndex(btn => hasActiveThemeToken(btn));
+  }
+
+  function getCurrentLunaTVEpisodeIndex(episodes = getLunaTVEpisodes()) {
+    const currentEpisodeNumber = getCurrentLunaTVEpisodeNumber();
+    if (currentEpisodeNumber != null) {
+      const matchedIndex = episodes.findIndex(btn =>
+        parseInt(normalizeLunaTVButtonText(btn.textContent), 10) === currentEpisodeNumber
+      );
+      if (matchedIndex >= 0) return matchedIndex;
+    }
+
+    return episodes.findIndex(btn =>
+      hasActiveThemeToken(btn) || btn.className.includes('scale-105')
+    );
+  }
+
+  function clearLunaTVEpisodeGroupHighlights() {
+    getLunaTVEpisodeGroups().forEach(btn => {
+      btn.style.outline = '';
+      btn.style.boxShadow = '';
+    });
+  }
+
+  function clearLunaTVEpisodeHighlights() {
+    getLunaTVEpisodes().forEach(btn => {
+      btn.style.outline = '';
+      btn.style.boxShadow = '';
+    });
+  }
+
+  function highlightLunaTVEpisodeGroup(index) {
+    const groups = getLunaTVEpisodeGroups();
+    if (index < 0 || index >= groups.length) return;
+    clearLunaTVEpisodeGroupHighlights();
+    clearLunaTVEpisodeHighlights();
+    const current = groups[index];
+    current.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
+    current.style.boxShadow = '0 0 0 6px rgba(74, 222, 128, 0.2)';
+    current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    console.log('LunaTV播放页: 高亮大选集 [' + (index + 1) + '/' + groups.length + '] ' + normalizeLunaTVButtonText(current.textContent));
   }
 
   function highlightLunaTVEpisode(index) {
     const episodes = getLunaTVEpisodes();
     if (index < 0 || index >= episodes.length) return;
-    episodes.forEach(b => { b.style.outline = ''; b.style.boxShadow = ''; });
+    clearLunaTVEpisodeGroupHighlights();
+    clearLunaTVEpisodeHighlights();
     const current = episodes[index];
     current.style.outline = '3px solid rgba(74, 222, 128, 0.85)';
     current.style.boxShadow = '0 0 0 6px rgba(74, 222, 128, 0.2)';
@@ -628,33 +1118,128 @@
     console.log('LunaTV播放页: 高亮集数 [' + (index + 1) + '/' + episodes.length + '] ' + current.textContent?.trim());
   }
 
+  function focusCurrentOrFirstLunaTVEpisode(preferCurrent = true) {
+    const episodes = getLunaTVEpisodes();
+    if (episodes.length === 0) return false;
+
+    let targetIndex = preferCurrent ? getCurrentLunaTVEpisodeIndex(episodes) : -1;
+    if (targetIndex < 0) targetIndex = 0;
+
+    lunatvEpisodeFocusMode = 'episode';
+    lunatvEpisodeIndex = targetIndex;
+    highlightLunaTVEpisode(lunatvEpisodeIndex);
+    return true;
+  }
+
+  function focusCurrentLunaTVEpisodeGroup() {
+    const groups = getLunaTVEpisodeGroups();
+    if (groups.length === 0) return false;
+
+    let targetIndex = getCurrentLunaTVEpisodeGroupIndex(groups);
+    if (targetIndex < 0) targetIndex = 0;
+
+    lunatvEpisodeFocusMode = 'group';
+    lunatvEpisodeGroupIndex = targetIndex;
+    highlightLunaTVEpisodeGroup(lunatvEpisodeGroupIndex);
+    return true;
+  }
+
+  function activateLunaTVEpisodeGroup(index) {
+    const groups = getLunaTVEpisodeGroups();
+    if (index < 0 || index >= groups.length) return;
+
+    const currentGroupIndex = getCurrentLunaTVEpisodeGroupIndex(groups);
+    const preferCurrentEpisode = index === currentGroupIndex;
+    const btn = groups[index];
+
+    console.log('LunaTV播放页: 点击大选集 ' + normalizeLunaTVButtonText(btn.textContent));
+    if (!preferCurrentEpisode) {
+      dispatchLunaTVClick(btn);
+    }
+
+    cachedLunaTVEpisodeGroups = null;
+    cachedLunaTVEpisodes = null;
+    lunatvEpisodeGroupIndex = -1;
+    lunatvEpisodeIndex = -1;
+
+    let attempt = 0;
+    const focusEpisodes = () => {
+      cachedLunaTVEpisodes = null;
+      const episodes = getLunaTVEpisodes();
+      if (episodes.length > 0) {
+        focusCurrentOrFirstLunaTVEpisode(preferCurrentEpisode);
+        return;
+      }
+
+      attempt += 1;
+      if (attempt < 10) {
+        setTimeout(focusEpisodes, 120);
+      }
+    };
+
+    setTimeout(focusEpisodes, preferCurrentEpisode ? 0 : 180);
+  }
+
   function lunatvEpisodeNavigate(direction) {
-    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+    if (!isCurrentLunaTVPlayPage()) return;
+
+    const groups = getLunaTVEpisodeGroups();
+    if (lunatvEpisodeFocusMode === 'group' && groups.length > 0) {
+      if (lunatvEpisodeGroupIndex < 0) {
+        focusCurrentLunaTVEpisodeGroup();
+        return;
+      }
+
+      if (direction === 'up') {
+        lunatvEpisodeGroupIndex = Math.max(0, lunatvEpisodeGroupIndex - 1);
+      } else if (direction === 'down') {
+        lunatvEpisodeGroupIndex = Math.min(groups.length - 1, lunatvEpisodeGroupIndex + 1);
+      }
+      highlightLunaTVEpisodeGroup(lunatvEpisodeGroupIndex);
+      return;
+    }
+
     const episodes = getLunaTVEpisodes();
     if (episodes.length === 0) { console.log('LunaTV播放页: 找不到集数列表'); return; }
     if (lunatvEpisodeIndex < 0) {
-      const currentIdx = episodes.findIndex(btn =>
-        btn.className.includes('from-primary-500') || btn.className.includes('scale-105')
-      );
-      lunatvEpisodeIndex = currentIdx >= 0 ? currentIdx : 0;
-      highlightLunaTVEpisode(lunatvEpisodeIndex);
+      focusCurrentOrFirstLunaTVEpisode(true);
       return;
     }
-    if (direction === 'up') lunatvEpisodeIndex = Math.max(0, lunatvEpisodeIndex - 1);
-    else if (direction === 'down') lunatvEpisodeIndex = Math.min(episodes.length - 1, lunatvEpisodeIndex + 1);
+
+    if (direction === 'up') {
+      if (lunatvEpisodeIndex === 0 && groups.length > 0) {
+        focusCurrentLunaTVEpisodeGroup();
+        return;
+      }
+      lunatvEpisodeIndex = Math.max(0, lunatvEpisodeIndex - 1);
+    } else if (direction === 'down') {
+      lunatvEpisodeIndex = Math.min(episodes.length - 1, lunatvEpisodeIndex + 1);
+    }
+
     highlightLunaTVEpisode(lunatvEpisodeIndex);
   }
 
   function lunatvEpisodeClick() {
-    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+    if (!isCurrentLunaTVPlayPage()) return;
+
+    if (lunatvEpisodeFocusMode === 'group') {
+      const groups = getLunaTVEpisodeGroups();
+      if (lunatvEpisodeGroupIndex < 0 || lunatvEpisodeGroupIndex >= groups.length) {
+        console.log('LunaTV播放页: 没有选中的大选集');
+        return;
+      }
+      activateLunaTVEpisodeGroup(lunatvEpisodeGroupIndex);
+      return;
+    }
+
     const episodes = getLunaTVEpisodes();
     if (lunatvEpisodeIndex < 0 || lunatvEpisodeIndex >= episodes.length) { console.log('LunaTV播放页: 没有选中的集数'); return; }
     const btn = episodes[lunatvEpisodeIndex];
     console.log('LunaTV播放页: 点击集数 ' + btn.textContent?.trim());
-    btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-    btn.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
-    btn.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
+    dispatchLunaTVClick(btn);
+    cachedLunaTVEpisodeGroups = null; lunatvEpisodeGroupIndex = -1;
     cachedLunaTVEpisodes = null; lunatvEpisodeIndex = -1;
+    lunatvEpisodeFocusMode = 'episode';
   }
 
   function getLunaTVPlaySources() {
@@ -732,7 +1317,7 @@
   }
 
   function lunatvPlaySourceNavigate(direction) {
-    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+    if (!isCurrentLunaTVPlayPage()) return;
 
     const sources = getLunaTVPlaySources();
     if (sources.length === 0) {
@@ -760,7 +1345,7 @@
   }
 
   function lunatvPlaySourceClick() {
-    if (!window.location.href.includes('tv.dogegg.online/play')) return;
+    if (!isCurrentLunaTVPlayPage()) return;
 
     const sources = getLunaTVPlaySources();
     if (lunatvPlaySourceIndex < 0 || lunatvPlaySourceIndex >= sources.length) {
@@ -1182,7 +1767,7 @@
 
       // 处理LunaTV导航命令
       socket.on('lunatv_navigate_command', function (data) {
-        if (!window.location.href.includes('tv.dogegg.online'))
+        if (!isCurrentLunaTVPage())
           return;
         // 用 localStorage 跨 iframe 去重，防止多个脚本实例重复执行
         const cmdId = 'nav_' + data.timestamp + '_' + data.direction;
@@ -1216,7 +1801,7 @@
 
       // 处理LunaTV点击命令
       socket.on('lunatv_click_command', function (data) {
-        if (!window.location.href.includes('tv.dogegg.online'))
+        if (!isCurrentLunaTVPage())
           return;
         const cmdId = 'click_' + data.timestamp;
         const lastCmd = localStorage.getItem('__lunatv_cmd__');
@@ -1239,7 +1824,7 @@
 
       // 处理LunaTV Tab切换命令
       socket.on('lunatv_tab_command', function (data) {
-        if (!window.location.href.includes('tv.dogegg.online/play')) return;
+        if (!isCurrentLunaTVPlayPage()) return;
         const cmdId = 'tab_' + data.timestamp;
         const lastCmd = localStorage.getItem('__lunatv_cmd__');
         if (lastCmd === cmdId) return;
@@ -1269,7 +1854,7 @@
         console.log('收到LunaTV搜索命令, 关键词:', keyword);
 
         // 构建搜索URL
-        const searchUrl = `https://tv.dogegg.online/search?q=${encodeURIComponent(keyword)}`;
+        const searchUrl = `${getCurrentLunaTVOrigin()}/search?q=${encodeURIComponent(keyword)}`;
         console.log('即将跳转到:', searchUrl);
 
         // 显示通知
@@ -1288,11 +1873,11 @@
         console.log('收到获取LunaTV播放历史命令');
         GM_xmlhttpRequest({
           method: 'GET',
-          url: 'https://tv.dogegg.online/api/playrecords',
+          url: `${getCurrentLunaTVOrigin()}/api/playrecords`,
           anonymous: false,
           headers: {
             'accept': '*/*',
-            'referer': 'https://tv.dogegg.online/',
+            'referer': `${getCurrentLunaTVOrigin()}/`,
             'accept-language': 'zh-CN,zh;q=0.9'
           },
           onload: function (response) {
@@ -1332,7 +1917,7 @@
         const source = key.slice(0, plusIdx);       // e.g. "api_26"
         const id = key.slice(plusIdx + 1);           // e.g. "116239"
         const index = Math.max(0, (record.index || 1) - 1); // 1-based → 0-based
-        const url = `https://tv.dogegg.online/play?source=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}&title=${encodeURIComponent(record.title || '')}&year=${encodeURIComponent(record.year || '')}&index=${index}`;
+        const url = `${getCurrentLunaTVOrigin()}/play?source=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}&title=${encodeURIComponent(record.title || '')}&year=${encodeURIComponent(record.year || '')}&index=${index}`;
 
         console.log('[播放历史] 跳转到:', url);
         window.location.href = url;
@@ -1459,7 +2044,7 @@
     if (currentUrl.includes('bilibili.com')) {
       mode = 'bilibili';
       if (currentUrl.includes('page=History')) subMode = 'history';
-    } else if (currentUrl.includes('tv.dogegg.online')) {
+    } else if (isLunaTVUrl(currentUrl)) {
       mode = 'lunatv';
     } else if (currentUrl.includes('tv.cctv.com')) {
       mode = 'cctv';
