@@ -192,7 +192,12 @@ def get_current_volume():
     """获取当前系统音量"""
     cmd = "osascript -e 'output volume of (get volume settings)'"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    return int(result.stdout.strip())
+    value = result.stdout.strip()
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        print(f"获取系统音量失败，返回0。stdout={value!r}, stderr={result.stderr.strip()!r}")
+        return 0
 
 def focus_chrome_target(mode=None, url=None):
     """根据页面模式或URL聚焦对应的 Chrome 标签页。"""
@@ -422,7 +427,7 @@ def get_wake_status():
 
 # WebSocket事件处理
 @socketio.on('connect')
-def handle_connect():
+def handle_connect(auth=None):
     """客户端连接时的处理"""
     global first_user_wake_triggered, first_user_wake_date, current_mode
 
@@ -1203,4 +1208,4 @@ if __name__ == '__main__':
     print(f"本机局域网IP: {local_ip}")
     print(f"遥控器访问地址: http://{local_ip}:5003")
     print("=" * 60)
-    socketio.run(app, host='0.0.0.0', port=5003, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5003, debug=True, use_reloader=False)
